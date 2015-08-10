@@ -1,56 +1,27 @@
-omniscape.py- just functions using omniOptions
-    iterates through blocks
-    returns name of current (&voltage) map(s) 
-omniscape_block.py- just what's required to run a single block? omniscape iterates through blocks and calls this.
-run_omniscape.py- inputs. populates omniOptions
-omniscape_range_shift and such- custom code to call using temp data or whatever
-
-omniscape_climate
-PROBLEM: right now it is fast because we only solve a block once. All valid sources with matching targets in block are invoked simultaneously
-tdiff is many-to-one since target just needs to be >tdiff. CHANGE THIS? SHOW 1deg or 2deg or 4deg flow? Then could use bins.
-?SOLUTION: either discrete bins OR climate module(s) called to modify source and target arrays JUST BEFORE solve.
-
-take climate inputs
-divide into bins, can be as fine as you like. 
-    save present_bins, future_bins, then could solve blocks only once. or
-for climateBin
-    map present bin location
-    map future matches
-    --or-- map future bin location, present matches?
-    export all sources (present) and targets (future). call omniscape.py
-
-    
-from omniscape import *
-
 # Omniscape base code
     # inputs:
         # sources (strengths) 
         # targets (strengths)
-        # resistance (can use cutoff to create binary src or target layers)
+        # resistance
         # block size
-        # targonly- amount of current is based on sum of target strengths in block. source strengths proportional to source strength layer (and distance function if appl)
+        # targonly
         # radius
-        # calc_current
-        # calc_flow_accum
         # distance function for source strengths
-            # from math import *
-            # x = 2
-            # string = "sin(x)*x**2"
-            # test = eval(string)
-            # print test
-        
-        # fade??
+        # fade?
 # Climate calling code
     # inputs:
         # temp, or pc1, pc2 at T1, T2
         # for each temp or pc1/pc2 combo:
             # identify sources and targets
             # call omniscape_base 
-# Partial out fade? Would get 3 outputs- raw, fade, raw-fade. Or just fade and raw-fade.  
-# Add memory error catch, try again.
-saveFade- sums up fades and saves. Will take more memory.
 
+# Partial out fade? Would get 3 outputs- raw, fade, raw-fade. Or just fade and raw-fade.
 
+#4/16/15:
+# removed polygonblocks
+# remoed maskblocks
+# removed fillblocks
+# remove noweight?- doesn't make sense, since would produce diff results with diff block sizes.
 
 # sourceRaster
 # useSourceRasterCutoff #binary 1/0 if above(?) this value or have negative values to denote below this value
@@ -90,7 +61,7 @@ tile=-1
 
 projectDir = r'C:\Dropbox\Working\Dickson11States\PewOmniAnalysis072515' 
 resisRasterBase = 'hmv8w_90x2s_plus1_Pow10_810m_NHD_slp.asc'
-outputDirBase = 'Omni_pow10_notargonly'
+outputDirBase = 'Omni_pow10'
 
 useSourceRaster=True
 sourceRasterBase = 'rDissolved_PAD1_3_ICUNI_IV_NLCS_gt5kac.tif'
@@ -115,14 +86,16 @@ adjustVoltages=False
 # Targets and weighting #
 centerGround=True # doesnt' really change results, pretty much identical
 negTargets= False # negative sources at targets- blocks can work better with centerground, fade out, and no neg targs.
-weightTargOnly = False # total current flow is ~ ntargs. may make sense if # dispersers limited
+weightTargOnly = True # total current flow is ~ ntargs. may make sense if # dispersers limited
 noWeight=False
 logTrans=False
 
 # FADE CURRENTS 
 fadeIn=True # linear decrease with distance to center. best with center ground
-from math import *
+import math
 fadeInDist=20#radius/2#math.sqrt(2)*(blockSize/2)
+fadeOut=False
+fadeOutDist = radius-15#(2.0/3)*(radius-(math.sqrt(2)*(blockSize/2)))+(math.sqrt(2)*blockSize/2)
 
 
 # FADE VOLTAGES
@@ -182,8 +155,14 @@ if fadeIn:
     fadeInText='fadeIn'+str(int(fadeInDist))
 else:
     fadeInText=''
+if fadeOut:
+    fadeOutText='fadeOut'+str(int(fadeOutDist))
+else:
+    fadeOutText=''
 if fadeVoltages:
     fadeVoltText='fadeVolt'
+elif fadeIn or fadeOut:
+    fadeVoltText=fadeInText+fadeOutText
 else:
     fadeVoltText=''
 if maskDonut>0:
@@ -244,6 +223,7 @@ print 'BlockSize=',blockSize
 print'Rcutoff=',rCutoff
 if donutRadius > 0:
     print 'donutRadius=',donutRadius
+
 
 print'startBand',startBand
 print'stopBand',stopBand
@@ -670,7 +650,7 @@ def circleFlowBand():
 #fixme- may not be compatible with subsources, weights, polygons, etc:
 #fixme: dont' mult by dists, but dist/radius?
 
-            if fadeIn:
+            if fadeIn or fadeOut:
 #fixme: could do these once (at least when current array is centered in band)
                 grid = npy.indices((currentArray.shape))
                 subsetRowArray = grid[0]
@@ -679,11 +659,22 @@ def circleFlowBand():
 
                 subsetDistArray = npy.sqrt(npy.multiply(subsetRowArray - subsetCenterRow, subsetRowArray- subsetCenterRow) + npy.multiply(subsetColArray-subsetCenterCol, subsetColArray-subsetCenterCol))           
                 
-                fadeArray=npy.where(subsetDistArray<fadeInDist,subsetDistArray/fadeInDist,1)
+                if fadeIn:
+                    fadeArray=npy.where(subsetDistArray<fadeInDist,subsetDistArray/fadeInDist,1)
+                    if fadeOut:
+                        fadeArray=npy.where(subsetDistArray>fadeOutDist,(radius-subsetDistArray)/(radius-fadeOutDist),fadeArray)
+                else:
+                    fadeArray=npy.where(subsetDistArray>fadeOutDist,(radius-subsetDistArray)/(radius-fadeOutDist),1)
                 
                 currentArray=npy.where(currentArray>0,npy.multiply(currentArray,fadeArray),currentArray)
                 del subsetRowArray, subsetColArray
 
+            # if fadeOut:
+                # fadeOutArray=npy.where(subsetDistArray>fadeOutDist,radius-subsetDistArray,1)
+                # currentArray = npy.where(currentArray>0,npy.multiply(currentArray,fadeOutArray),currentArray)
+                # 
+                # ascii_grid_writer('c:\\temp\\curFade.asc', currentArray, circleHeader, compress)
+                # blarg
 # fixme: do fadeArray as multiplier- just a single one for fade in and out
             
 
@@ -721,7 +712,7 @@ def circleFlowBand():
                 if fadeVoltages:
                     max_vdiff = npy.where(max_vdiff>0,npy.multiply(max_vdiff,subsetDistArray),max_vdiff)        
                     del fadeArray
-                elif fadeIn:
+                elif fadeIn or fadeOut:
                     max_vdiff = npy.where(max_vdiff>0,npy.multiply(max_vdiff,fadeArray),max_vdiff)
                     del fadeArray
 
@@ -885,7 +876,7 @@ def circleFlowBand():
         except:
             pass
     
-    sumFile = path.join(outputDir, 'cur_sum_' + nullText+fileBase + '__'+srcText+climText+logText+donutText+radiusText+'bl'+str(blockSize)+'_cutoff'+str(rCutoff) +weightText+noWeightText+subtrText+centerText+startBandText+stopBandText+startStripeText+stopStripeText+straddleText+maskDonutText+negTargText+fadeInText+bufferText+'.tif')
+    sumFile = path.join(outputDir, 'cur_sum_' + nullText+fileBase + '__'+srcText+climText+logText+donutText+radiusText+'bl'+str(blockSize)+'_cutoff'+str(rCutoff) +weightText+noWeightText+subtrText+centerText+startBandText+stopBandText+startStripeText+stopStripeText+straddleText+maskDonutText+negTargText+fadeInText+fadeOutText+bufferText+'.tif')
     print 'writing:\n',sumFile
     cumCurrentRaster.save(sumFile)
     delete_data(prevCumCurrentFile)
@@ -1904,12 +1895,3 @@ if __name__ == '__main__':
    # total current = ntargs that differ with at least one source
    # for each target, tally if there's any sources
     # after this line: tCutoffArray=npy.where(tDiffArray>=tCutoff,1,0)
-
-#4/16/15:
-# removed polygonblocks
-# remoed maskblocks
-# removed fillblocks
-# remove noweight?- doesn't make sense, since would produce diff results with diff block sizes.
-
-# 8/10/15:
-# removed fadeout
