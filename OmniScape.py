@@ -77,8 +77,7 @@ arcpy.CheckOutExtension("Spatial")
 arcpy.env.overwriteOutput=True
 def omniscape(options):
     theStart = datetime.datetime.now()  
-    options = set_options(options)   
-    options = prep_dirs(options)
+    options = set_options_and_dirs(options)   
     copy_this_file(options)
     arcpy.env.scratchWorkspace = options['scratchDir']
     arcpy.env.Workspace = options['scratchDir']
@@ -210,7 +209,6 @@ def omniscape(options):
             sourceArray = npy.where(targetArray > 0, 0, sourceArray)    
             sourceSum = sourceArray.sum()
             if sourceSum == 0:
-                print'ss0'
                 continue
 
             
@@ -295,16 +293,18 @@ def omniscape(options):
 
             circleHeader = get_subset_header(sourceArray, header, options, centerRow, centerCol)
 
-
+# For FA, save as resource grid
             sourceAsciiFile = path.join(options['scratchDir'], 'source_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.asc') 
             ascii_grid_writer(sourceAsciiFile, sourceArray, circleHeader, options)
 
+# for FA, save as point
             groundAsciiFile = path.join(options['scratchDir'], 'ground_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.asc')            
             ascii_grid_writer(groundAsciiFile, groundArray, circleHeader, options)
 
             outputFN = 'target_r'+str(centerRow) + 'c' +str(centerCol)+'.out'
             outputFile = path.join(options['scratchDir'], outputFN)
-            
+
+# For FA, save as resistance grid
             resisAsciiFile = path.join(options['scratchDir'], 'resis_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.asc') 
 
             csOptions = setCircuitscapeOptions(resisAsciiFile,sourceAsciiFile,groundAsciiFile,outputFile)
@@ -371,18 +371,10 @@ def omniscape(options):
                 del grid
 
                 subsetDistArray = npy.sqrt(npy.multiply(subsetRowArray - subsetCenterRow, subsetRowArray- subsetCenterRow) + npy.multiply(subsetColArray-subsetCenterCol, subsetColArray-subsetCenterCol))           
-                
                 fadeArray=npy.where(subsetDistArray<options['fadeInDist'],subsetDistArray/options['fadeInDist'],1)
-                
+
                 currentArray=npy.where(currentArray>0,npy.multiply(currentArray,fadeArray),currentArray)
-                del subsetRowArray, subsetColArray
-
-# fixme: do fadeArray as multiplier- just a single one for fade in and out
-            
-
-
-
-
+                del subsetRowArray, subsetColArray, subsetDistArray
             
 # fixme: use numpyarraytoraster
             # temp
@@ -391,7 +383,7 @@ def omniscape(options):
             #TEMP- multiplying by targetsum to get around solver failures
 
 
-#put in fn
+#put in fn once striping solved below
             if options['calcVoltages']:
                 voltMapPath = path.join(options['scratchDir'], 'target_r'+str(centerRow) + 'c' +str(centerCol) + '_voltmap.asc')
                 voltMap = (ascii_grid_reader(voltMapPath, header['nodata'], 'float64'))
@@ -399,9 +391,7 @@ def omniscape(options):
                 max_vdiff = get_max_vdiff(voltMap,circleResisArray,csOptions)
                 max_vdiff=npy.where(npy.isnan(max_vdiff),0,max_vdiff)
                 
-                                                  
-
-# temp fix for striping at edges
+# fixme temp fix for striping at edges
                 max_vdiff[0,::]=0
                 max_vdiff[:,0]=0
                 max_vdiff[:,circleHeader['ncols']-1]=0
@@ -542,7 +532,7 @@ def clean_up(options):
             pass
         
         
-def set_options(options):
+def set_options_and_dirs(options):
     """derives output base filename by combining input options. Also handles filenames for tiling    """    
     
     if tile >=0:
@@ -642,6 +632,15 @@ def set_options(options):
     print'calcNull',options['calcNull']
     print 'fadeIn', options['fadeIn']
 
+    options['outputDir']=os.path.join(options['projectDir'],options['outputDirBase'])
+    options['scratchDir']=os.path.join(options['projectDir'],options['projectDirBase'])
+    if not path.exists(options['projectDir']):
+        os.mkdir(options['projectDir'])
+    if not path.exists(options['scratchDir']):
+        os.mkdir(options['scratchDir'])
+    if not path.exists(options['outputDir']):
+        os.mkdir(options['outputDir'])
+    
     return options
 
 def copy_this_file(options):
@@ -652,17 +651,6 @@ def copy_this_file(options):
     fileName = ('%s_%s_%s_%s%s_%s' % (ft[0], ft[1], ft[2], ft[3], ft[4], os.path.basename(sys.argv[0])))
     filePath = os.path.join(options['outputDir'],fileName)
     shutil.copyfile(sys.argv[0],filePath) 
-
-def prep_dirs(options):
-    options['outputDir']=os.path.join(options['projectDir'],options['outputDirBase'])
-    options['scratchDir']=os.path.join(options['projectDir'],options['projectDirBase'])
-    if not path.exists(options['projectDir']):
-        os.mkdir(options['projectDir'])
-    if not path.exists(options['scratchDir']):
-        os.mkdir(options['scratchDir'])
-    if not path.exists(options['outputDir']):
-        os.mkdir(options['outputDir'])
-    return options
 
             
 def get_max_vdiff(voltMap,circleResisArray,csOptions):
