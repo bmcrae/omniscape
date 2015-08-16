@@ -5,10 +5,14 @@ tile=-1
 options={}
 options['projectDir'] = r'C:\Dropbox\Working\Dickson11States\PewOmniAnalysis072515' 
 options['resisRasterBase'] = 'hmv8w_90x2s_plus1_Pow10_810m_NHD_slp.asc'
-options['outputDirBase'] = 'test'
+options['outputDirBase'] = 'testrcut'
 
-options['useSourceRaster']=True
+options['useSourceRaster']=False
 options['sourceRasterBase'] = 'rDissolved_PAD1_3_ICUNI_IV_NLCS_gt5kac.tif'
+
+# FLOW ACCUMULATION ####
+options['calcFA']=True
+options['addRandomResistances']=True #add random values to FA resis raster
 
 # CLIMATE ####
 options['useClimate']=False
@@ -21,13 +25,13 @@ options['radius'] = 100 # in PIXELS
 options['blockSize'] = 55 #Odd number
 
 # ANALYSIS EXTENT ####
-options['startBand'] = 5 # bands are horizontal, with width equal to options['blockSize']. approx nrows/options['blockSize'] bands in a raster.
-options['endBand'] = 6 # stops before processing this band
-options['startStripe'] = 9#stripes are vertical, with width equal to options['blockSize']
-options['endStripe']=15 # 0 to ignore this
+options['startBand'] = 7 #bands are horizontal, with width equal to options['blockSize']. approx nrows/options['blockSize'] bands in a raster.
+options['endBand'] = 9 # stops before processing this band
+options['startStripe'] = 7#stripes are vertical, with width equal to options['blockSize']
+options['endStripe']=9 # 0 to ignore this
 
 # Resistances and cutoffs
-options['rCutoff'] = 1
+options['rCutoff'] = 10000
 options['squareResistances']=False
 
 # SPECIAL FUNCTIONS
@@ -86,8 +90,19 @@ def omniscape(options):
 
     # Set raster paths and export to ascii if needed. FIXME: don't really need ascii, just convenient for header code for now
     resisRaster = path.join(options['projectDir'],options['resisRasterBase'])
-    fileBase, fileExtension = os.path.splitext(resisRaster)   
-
+    if options['addRandomResistances']:
+        fileBase, fileExtension = path.splitext(options['resisRasterBase'])
+        resisRasterFA = path.join(options['projectDir'],'rand_'+fileBase+'.tif')
+        descData=arcpy.Describe(resisRaster)
+        extent=descData.Extent
+        cellSize=descData.MeanCellHeight
+        seedValue = 1
+        outRandomRaster = arcpy.sa.CreateRandomRaster(seedValue, cellSize, extent) 
+        outResisRaster = arcpy.sa.Plus(outRandomRaster, resisRaster)
+        outResisRaster.save(resisRasterFA)
+        resisRaster=resisRasterFA
+        
+        
     if options['useClimate']:
         climateRaster = path.join(options['projectDir'],options['climateRasterBase'])
     if options['useSourceRaster']:
@@ -105,6 +120,8 @@ def omniscape(options):
     else:
         cumVdiffArray = None       
         cumVdiffRaster = None
+    if options['calcFA']:
+        cumFlowRaster = arcpy.sa.Con((arcpy.Raster(resisRaster) > 0),0,0)
     
     iter = 0
     bandNum = 0
@@ -114,8 +131,10 @@ def omniscape(options):
         bandNum += 1 
         if options['startBand'] > 0 and bandNum < options['startBand']: continue
         if options['endBand'] > 0 and bandNum >= options['endBand']: break
-
-        print 'Starting band #',bandNum,' out of ',int(header['nrows']/options['blockSize']),' centered on row '+str(centerRow)
+        if options['endBand'] > 0:
+            print 'Starting band #',bandNum,' out of ',options['endBand'],' centered on row '+str(centerRow)
+        else:
+            print 'Starting band #',bandNum,' out of ',int(header['nrows']/options['blockSize']),' centered on row '+str(centerRow)
 
         bandArray = band(resisRaster,header,centerRow, options)
         if options['squareResistances']:
@@ -212,7 +231,7 @@ def omniscape(options):
                 continue
 
             
-# test- small block in center
+# test- small block in center 
             if options['centerGround']:
                 groundArray = npy.where(targetArray > 0, -9999, -9999)
                 groundArray[subsetCenterRow, subsetCenterCol] = 0 
@@ -296,7 +315,7 @@ def omniscape(options):
 # For FA, save as resource grid
             sourceAsciiFile = path.join(options['scratchDir'], 'source_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.asc') 
             ascii_grid_writer(sourceAsciiFile, sourceArray, circleHeader, options)
-
+    
 # for FA, save as point
             groundAsciiFile = path.join(options['scratchDir'], 'ground_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.asc')            
             ascii_grid_writer(groundAsciiFile, groundArray, circleHeader, options)
@@ -317,13 +336,55 @@ def omniscape(options):
             
             ascii_grid_writer(resisAsciiFile, circleResisArray, circleHeader, options)
 
+            print '\nDone with prep'
+            start_time0=elapsed_time(start_time0)           
+
+            if options['calcFA']:
+                # fixme: conversion to raster can go in fn
+                # sourceTiff = path.join(options['scratchDir'], 'source_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.tif') 
+                # yMin= circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
+                # LLC = arcpy.Point(header['xllcorner'],yMin)
+                # sourceRaster = arcpy.NumPyArrayToRaster(sourceArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
+                # sourceRaster.save(sourceTiff)
+                
+                # fixme: convoluted way to get a shapefile via raster conversion. simplify
+                # groundPointTiff = path.join(options['scratchDir'], 'ground_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.shp')                
+                
+                # FA point
+                outPoint = 'c:\\temp\\point'+'iter'+str(iter)+'.shp'
+                if arcpy.Exists(outPoint):
+                    arcpy.Delete_management(outPoint)
+                field = "VALUE"
+                arcpy.RasterToPoint_conversion(groundAsciiFile, outPoint, field)    
+                # FA source strength
+                yMin= circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
+                LLC = arcpy.Point(circleHeader['xllcorner'],yMin)
+                sourceRasFA = arcpy.NumPyArrayToRaster(sourceArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
+                sourceRasFA.save('c:\\temp\\sourceRasFA'+'iter'+str(iter)+'.tif')
+                resisRasFA = arcpy.NumPyArrayToRaster(circleResisArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
+                resisRasFA.save('c:\\temp\\xresisRasFA'+'iter'+str(iter)+'.tif') #fixme not needed
+                rOut = 'FA'
+                
+                print 'Starting flow accumulation'
+                start_timeFA = time.clock()
+                rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#')#, rOut + "d" + str(FID) ) #BHM can limit cwd here 999999999
+                rCB.save('c:\\temp\\xrCB'+'iter'+str(iter)+'.tif') #fixme not needed
+                rFD = arcpy.sa.Con( rCB > 0, arcpy.sa.Power(2, (rCB - 1))) 
+                rFD.save('c:\\temp\\xrFD'+'iter'+str(iter)+'.tif') #fixme not needed
+                
+                rFA = arcpy.sa.Plus(arcpy.sa.FlowAccumulation( rFD, sourceRasFA ), sourceRasFA) #Note! added in source strengths 8/15/15
+                
+                rFA.save('c:\\temp\\xrFA'+'iter'+str(iter)+'.tif') #fixme not needed
+                rFA2=arcpy.sa.Con(arcpy.sa.IsNull(rFA),0,rFA)
+                start_timeFA = elapsed_time(start_timeFA)
+
             configFN = 'config_target_b'+str(centerRow) + 'c' +str(centerCol)+'.ini'
             outConfigFile = path.join(options['scratchDir'], configFN)
             writeCircuitscapeConfigFile(outConfigFile, csOptions)  
-            
-            print '\nDone with prep'
-            start_time0=elapsed_time(start_time0)
-            print 'Ready to solve block row and col', centerRow, ',', centerCol, 'in band#',bandNum,' out of ',int(header['nrows']/options['blockSize'])
+            if options['endBand'] > 0:
+                print 'Ready to solve block row and col', centerRow, ',', centerCol, 'in band#',bandNum,' out of ',options['endBand']
+            else:
+                print 'Ready to solve block row and col', centerRow, ',', centerCol, 'in band#',bandNum,' out of ',int(header['nrows']/options['blockSize'])
             print 'Elapsed time so far: {0}'.format(datetime.datetime.now()-theStart)  
             solveInBand=True
             CSPATH = get_cs_path()                            
@@ -359,7 +420,13 @@ def omniscape(options):
             else:
                 currentArray = multiplier * (ascii_grid_reader(curMapPath, header['nodata'], 'float64')) 
 
-
+            
+            if options['calcFA']:
+                rFA3 = arcpy.sa.Times(rFA2, int(multiplier)) #fixme: may be faster to convert rfa or rfa2 into array and do numpy calcs for entire band, then add band in
+                centralityFile= "c:\\temp\\a_iter" + str(iter) + '.tif'
+                rFA3.save (centralityFile)    # fixme: not needed really 
+                cumFlowRaster = addData_arcpy(rFA3, cumFlowRaster)
+                
 #fixme- may not be compatible with subsources, weights, polygons, etc:
 #fixme: dont' mult by dists, but dist/options['radius']?
 
@@ -442,12 +509,17 @@ def omniscape(options):
                 cumVdiffRaster = addData_arcpy(cumVdiffRaster, bandVdiffRaster)
 
             options = write_temp_maps(options,bandNum,cumCurrentArray,cumCurrentRaster,cumVdiffArray,cumVdiffRaster)
-        
+            
+            #fixme: move to write_temp_maps, add final one too.
+            cumFlowFile = os.path.join(options['outputDir'], 'BAND'+str(bandNum)+'flow_sum_' + options['outputFileText'])
+            cumFlowRasterInt = arcpy.sa.Int(cumFlowRaster)
+            cumFlowRasterInt.save(cumFlowFile)
+            
         print 'Done with band #',bandNum,'.Elapsed time so far: {0}'.format(datetime.datetime.now()-theStart)  
 
     print 'solved thru centerrow',centerRow
 
-    write_final_maps(options,cumCurrentRaster,cumVdiffRaster)
+    write_final_maps(options,cumCurrentRaster,cumVdiffRaster,cumFlowRaster)
     clean_up(options)
     
 
@@ -470,11 +542,18 @@ def delete_dir(dir):
     except:
         return
     
-def write_final_maps(options,cumCurrentRaster,cumVdiffRaster):
+def write_final_maps(options,cumCurrentRaster,cumVdiffRaster,cumFlowRaster):
     sumFile = path.join(options['outputDir'], 'cur_sum_' + options['outputFileText'])
     print 'writing:\n',sumFile
     cumCurrentRaster.save(sumFile)
     delete_data(options['prevCumCurrentFile'])
+    
+    if options['calcFA']:       
+        sumFile = path.join(options['outputDir'], 'flow_sum_' + options['outputFileText'])
+        print 'writing:\n',sumFile
+        cumFlowRaster.save(sumFile)
+        #fixme: delete previous flow rasters
+    
     if options['calcVoltages']:
         sumFile = path.join(options['outputDir'], 'vDiff_sum_' + options['outputFileText'])
         print 'writing:\n',sumFile
@@ -617,7 +696,11 @@ def set_options_and_dirs(options):
     else:
         nullText=''
 
-    options['outputFileText'] = nullText+resisRasText + '__'+srcText+climText+radiusText+'bl'+str(options['blockSize'])+'_cutoff'+str(options['rCutoff']) +weightText+noWeightText+subtrText+centerText+startBandText+endBandText+startStripeText+endStripeText+negTargText+fadeInText+'.tif'
+    if not options['useSourceRaster']:
+        cutoffText ='_cutoff'+str(options['rCutoff'])
+    else:
+        cutoffText = ''
+    options['outputFileText'] = nullText+resisRasText + '__'+srcText+climText+radiusText+'bl'+str(options['blockSize'])+cutoffText +weightText+noWeightText+subtrText+centerText+startBandText+endBandText+startStripeText+endStripeText+negTargText+fadeInText+'.tif'
     options['prevCumCurrentFile']=None
     options['prevVdiffFile'] = None
 
@@ -640,7 +723,7 @@ def set_options_and_dirs(options):
         os.mkdir(options['scratchDir'])
     if not path.exists(options['outputDir']):
         os.mkdir(options['outputDir'])
-    
+    print '\n'
     return options
 
 def copy_this_file(options):
@@ -882,7 +965,7 @@ def get_header(filename):
     header['xllcorner'] = xllcorner
     header['yllcorner'] = yllcorner
     header['cellsize'] = cellsize
-    header['nodata'] = -9999 #if (nodata == False) else nodata     
+    header['nodata'] = -9999 #if (nodata == False) else nodata 
     return header 
 
 def ascii_grid_writer(file_name, data, header, options):
