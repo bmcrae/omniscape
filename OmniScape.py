@@ -1,4 +1,17 @@
-tile=-1
+# #todo:
+# sourth strengths- can be ppn to quality
+# DISTANCE FUNCTION! Need ability to drop close movements as well as diminish long distance
+# Dave takes int(ln(flow)) and does a thin. also runs 2nd lcp through FA layer to clean up.
+# separate source and target layers?
+# Climate functionality
+# Source strength based on distance (including lower cutoffs)
+# Build in simple rewrite in case of write error. Could just do new scratch directories and a 'try_x_' in output files.
+#automatically do int of Fa results and convert to polylines
+#re-scale FA results 1-100?
+#try null?
+# automatically put current in quantiles? May not be possible for large grids.
+
+tile, higher re=-1
 #---------------------------------------------------------------------
 # BASIC INPUTS #
 #---------------------------------------------------------------------
@@ -92,7 +105,7 @@ def omniscape(options):
     resisRaster = path.join(options['projectDir'],options['resisRasterBase'])
     if options['addRandomResistances']:
         fileBase, fileExtension = path.splitext(options['resisRasterBase'])
-        resisRasterFA = path.join(options['projectDir'],'rand_'+fileBase+'.tif')
+        resisRasterFA = path.join(options['scratchDir'],'rand_'+fileBase+'.tif')
         descData=arcpy.Describe(resisRaster)
         extent=descData.Extent
         cellSize=descData.MeanCellHeight
@@ -351,7 +364,7 @@ def omniscape(options):
                 # groundPointTiff = path.join(options['scratchDir'], 'ground_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.shp')                
                 
                 # FA point
-                outPoint = 'c:\\temp\\point'+'iter'+str(iter)+'.shp'
+                outPoint = path.join(options['scratchDir'], 'point_iter'+str(iter)+'.shp')
                 if arcpy.Exists(outPoint):
                     arcpy.Delete_management(outPoint)
                 field = "VALUE"
@@ -360,21 +373,22 @@ def omniscape(options):
                 yMin= circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
                 LLC = arcpy.Point(circleHeader['xllcorner'],yMin)
                 sourceRasFA = arcpy.NumPyArrayToRaster(sourceArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
-                sourceRasFA.save('c:\\temp\\sourceRasFA'+'iter'+str(iter)+'.tif')
+                # sourceRasFA.save(path.join(options['scratchDir'], 'sourceRasFA_iter'+str(iter)+'.tif')) #fixme: not needed
                 resisRasFA = arcpy.NumPyArrayToRaster(circleResisArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
-                resisRasFA.save('c:\\temp\\xresisRasFA'+'iter'+str(iter)+'.tif') #fixme not needed
+                # resisRasFA.save('c:\\temp\\xresisRasFA'+'iter'+str(iter)+'.tif') #fixme not needed
                 rOut = 'FA'
                 
                 print 'Starting flow accumulation'
                 start_timeFA = time.clock()
                 rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#')#, rOut + "d" + str(FID) ) #BHM can limit cwd here 999999999
-                rCB.save('c:\\temp\\xrCB'+'iter'+str(iter)+'.tif') #fixme not needed
+                arcpy.Delete_management(outPoint)
+                # rCB.save('c:\\temp\\xrCB'+'iter'+str(iter)+'.tif') #fixme not needed
                 rFD = arcpy.sa.Con( rCB > 0, arcpy.sa.Power(2, (rCB - 1))) 
-                rFD.save('c:\\temp\\xrFD'+'iter'+str(iter)+'.tif') #fixme not needed
+                # rFD.save('c:\\temp\\xrFD'+'iter'+str(iter)+'.tif') #fixme not needed
                 
-                rFA = arcpy.sa.Plus(arcpy.sa.FlowAccumulation( rFD, sourceRasFA ), sourceRasFA) #Note! added in source strengths 8/15/15
+                rFA = arcpy.sa.Plus(arcpy.sa.FlowAccumulation( rFD, sourceRasFA ), sourceRasFA) #Note! added in source strengths 8/15/15 
                 
-                rFA.save('c:\\temp\\xrFA'+'iter'+str(iter)+'.tif') #fixme not needed
+                # rFA.save('c:\\temp\\xrFA'+'iter'+str(iter)+'.tif') #fixme not needed
                 rFA2=arcpy.sa.Con(arcpy.sa.IsNull(rFA),0,rFA)
                 start_timeFA = elapsed_time(start_timeFA)
 
@@ -413,7 +427,7 @@ def omniscape(options):
             elif options['noWeight']:
                 multiplier = 1
             else:    
-                multiplier = sourceSum * targetSum 
+                multiplier = sourceSum * targetSum #fixme: combos of large radii and large blocks can exceed the ~2.1 billion limit for int32. Even going to int64 seems to crash arc.sa.Times.
             
             if options['subtractSources']:
                 currentArray = multiplier * (ascii_grid_reader(curMapPath, header['nodata'], 'float64') - abs(sourceArray))
@@ -423,8 +437,8 @@ def omniscape(options):
             
             if options['calcFA']:
                 rFA3 = arcpy.sa.Times(rFA2, int(multiplier)) #fixme: may be faster to convert rfa or rfa2 into array and do numpy calcs for entire band, then add band in
-                centralityFile= "c:\\temp\\a_iter" + str(iter) + '.tif'
-                rFA3.save (centralityFile)    # fixme: not needed really 
+                centralityFile= path.join(options['scratchDir'],"FA_iter" + str(iter) + '.tif')
+                # rFA3.save (centralityFile)    # fixme: not needed really 
                 cumFlowRaster = addData_arcpy(rFA3, cumFlowRaster)
                 
 #fixme- may not be compatible with subsources, weights, polygons, etc:
@@ -511,9 +525,12 @@ def omniscape(options):
             options = write_temp_maps(options,bandNum,cumCurrentArray,cumCurrentRaster,cumVdiffArray,cumVdiffRaster)
             
             #fixme: move to write_temp_maps, add final one too.
-            cumFlowFile = os.path.join(options['outputDir'], 'BAND'+str(bandNum)+'flow_sum_' + options['outputFileText'])
-            cumFlowRasterInt = arcpy.sa.Int(cumFlowRaster)
-            cumFlowRasterInt.save(cumFlowFile)
+            if options['calcFA']:
+                cumFlowFile = os.path.join(options['outputDir'], 'BAND'+str(bandNum)+'flow_sum_' + options['outputFileText'])
+                cumFlowRasterInt = arcpy.sa.Int(cumFlowRaster)
+                cumFlowRasterInt.save(cumFlowFile)
+                delete_data(options['prevFlowFile'])
+                options['prevFlowFile'] = cumFlowFile
             
         print 'Done with band #',bandNum,'.Elapsed time so far: {0}'.format(datetime.datetime.now()-theStart)  
 
@@ -701,22 +718,27 @@ def set_options_and_dirs(options):
     else:
         cutoffText = ''
     options['outputFileText'] = nullText+resisRasText + '__'+srcText+climText+radiusText+'bl'+str(options['blockSize'])+cutoffText +weightText+noWeightText+subtrText+centerText+startBandText+endBandText+startStripeText+endStripeText+negTargText+fadeInText+'.tif'
+    options['prevFlowFile']=None
     options['prevCumCurrentFile']=None
     options['prevVdiffFile'] = None
 
     print 'resisRasterBase=',options['resisRasterBase']
     print 'Radius=',options['radius']
     print 'BlockSize=',options['blockSize']
-    print'Rcutoff=',options['rCutoff']
+    if not options['useSourceRaster']:
+        print'rCutoff=',options['rCutoff']
     print'startBand',options['startBand']
     print'endBand',options['endBand']
     print'startStripe',options['startStripe']
     print'endStripe',options['endStripe']
     print'calcNull',options['calcNull']
-    print 'fadeIn', options['fadeIn']
+    if options['fadeIn']:
+        print 'fadeIn Distance',options['fadeInDist']
 
     options['outputDir']=os.path.join(options['projectDir'],options['outputDirBase'])
     options['scratchDir']=os.path.join(options['projectDir'],options['projectDirBase'])
+    print 'project Dir',options['projectDir']
+    print 'output Dir',options['outputDirBase']
     if not path.exists(options['projectDir']):
         os.mkdir(options['projectDir'])
     if not path.exists(options['scratchDir']):
