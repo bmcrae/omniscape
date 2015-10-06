@@ -2,6 +2,9 @@
 Thumbs.db
 ehthumbs.db
 
+test*.py
+test.py
+
 # Folder config file
 Desktop.ini
 
