@@ -5,6 +5,8 @@ ehthumbs.db
 test*.py
 test.py
 
+extras/
+
 # Folder config file
 Desktop.ini
 

@@ -1,3 +1,32 @@
+#make sure no nodata when summing center currents
+
+# Instead of fading, partition current in block according to resistance?
+
+# total current- sum
+# total conductance
+# conductance/total * total current
+
+# 1 1/6 current
+# 5 5/6 current 
+# nodata
+
+# # centerCurrents = center_block(centerCurrents, options, subsetCenterRow, subsetCenterCol) 
+# centerResistanceArray = center_block(circleResisArray, options, subsetCenterRow, subsetCenterCol) 
+# centerConductanceArray = where(circleResistanceArray>0,1/centerResistanceArray, npy.nan)
+
+# sumCenterConductances = centerConductanceArray.sum() #need NAN here
+
+# shareConductanceArray = centerConductanceArray/sumCenterConductances
+
+# # sumCenterCurrents = current at ground, or sum of currents 1 pixel away
+# sumCenterCurrents= currentArray[subsetCenterRow, subsetCenterCol]
+
+# centerCurrentArrayNew = shareConductanceArray * sumCenterCurrents
+# currentArray = where(centerCurrentArrayNew>0,centerCurrentArrayNew, currentArray)
+# del centerCurrentArrayNew, shareConductanceArray, centerConductanceArray, centerResistanceArray
+
+
+
 
 #large block sizes can lead to edge effects I think. edges of study area lack local connections. Shows up with distance function results (200km rad)
 # maybe not- #targonly reduces edge effects. above run was not targonly.
@@ -27,11 +56,11 @@ options={}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
 options['radius'] = 111# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 11 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['blockSize'] = 51 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
 options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where output directory will be created.
 options['resisRasterBase'] = 'pnwR450Test.tif' # Resistance raster name. All input should be same extent, projection, etc.
-options['outputDirBase'] = 'testFadeNEW'# will be created in project directory
+options['outputDirBase'] = 'fade025b'#DistPlus025_halfBS'#oneRuntestFadeDistPlus025'# will be created in project directory
 # options['projectDir'] = 'C:\\dropbox\\Working\\Circuitscape_BraidedThruway\\CF_PROOF'
 # options['resisRasterBase'] = 'EcologyResistances.asc'
 # options['resisRasterBase'] = '6x6r.asc'
@@ -40,7 +69,7 @@ options['sourceRasterBase'] = '6x6Sources.asc'# Name of source raster, if using 
 options['sourceInverseR']=True # Source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
-options['rCutoff'] = 7# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
+options['rCutoff'] = 20# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
 options['squareResistances']=True # Will square resistance raster before doing any calculations. sourceInverseR and rCutoff applied before squaring.
 
 # CLIMATE ####
@@ -74,17 +103,17 @@ options['addRandomResistances']=True #add random values to FA resis raster
 # OPTION TO LIMIT ANALYSIS EXTENT ####  
 # Bands are horizontal, with width equal to blockSize. There are approx nrows/blockSize bands in a raster. Stripes are vertical, with width equal to blocksize.
 # These options allow you to only process a subset of bands and stripes. 
-options['startBand'] = 30 # First band to process. Use 0 to ignore.
-options['endBand'] =  60# Stops before processing this band. Use 0 to ignore.
-options['startStripe'] = 50 #First stripe to process. Use 0 to ignore.
-options['endStripe'] = 90 # Stops before processing this stripe. 0 to ignore.
+options['startBand'] = 15 # First band to process. Use 0 to ignore.
+options['endBand'] =  20# Stops before processing this band. Use 0 to ignore.
+options['startStripe'] = 25 #First stripe to process. Use 0 to ignore.
+options['endStripe'] = 30 # Stops before processing this stripe. 0 to ignore.
 
 # VOLTAGES #### Note: code not complete yet!
 options['calcVoltages']=False
 options['adjustVoltages']=False
 
 # TARGETS AND WEIGHTING ####
-options['weightTargOnly'] = True # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
+options['weightTargOnly'] = False # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
 # Recommend not changing following
 options['noWeight']=False # Recommend False. 
 options['centerGround']=True # Recommend True.
@@ -94,7 +123,8 @@ options['subtractSources'] = False # Recommend False.
 # FADE CURRENTS #FIXME: check out divide by zero in fade calc
 options['fadeIn']=True# Decreases current from each solve linearly with distance to center. Helps with artifacts from blocks. Best with center ground.
 from math import *
-options['fadeInDist']=sqrt(2)*(options['blockSize']/2.0)#options['radius']/2 #
+options['fadeInDist']=options['blockSize']/2.0#sqrt(2)*(options['blockSize']/2.0)#options['radius']/2 #
+options['fadeConstant']=0.25 # Constant added to numerator and denominator in fade equation. Avoids zero current at center ground. Higher values mean more current at ground 
 
 # Quantilize maps ####
 options['quantilizeMaps'] = True # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
@@ -150,6 +180,10 @@ def omniscape(options):
         else:    
             climateRaster = path.join(options['projectDir'],options['climateRasterBase'])
     
+# FIXME TEMP            
+    # resisRaster=arcpy.sa.Con(arcpy.sa.IsNull(arcpy.Raster(resisRaster)),1,1)
+    # resisRaster.save('c:\\temp\\ones.tif')
+    # resisRaster = 'c:\\temp\\ones.tif'
     
     if options['useSourceRaster']:
         sourceRaster = path.join(options['projectDir'],options['sourceRasterBase'])
@@ -157,8 +191,10 @@ def omniscape(options):
         sourceRaster = 1 / arcpy.Raster(resisRaster) 
     else:
         sourceRaster = arcpy.sa.Con((arcpy.Raster(resisRaster) <= options['rCutoff']),1,0)
-        
+
+    
     resisRaster = square_resistances(resisRaster,options)
+    
     if options['calcFA']:    
         resisRasterFA = add_random_resistances(resisRaster,options)
   
@@ -190,7 +226,7 @@ def omniscape(options):
         if options['startBand'] > 0 and bandNum < options['startBand']: continue
         if options['endBand'] > 0 and bandNum >= options['endBand']: break
         if options['endBand'] > 0:
-            print 'Starting band #',bandNum,' out of ',options['endBand'],' centered on row '+str(centerRow)
+            print 'Starting band #',bandNum,' out of ',options['endBand'] - 1,' centered on row '+str(centerRow)
         else:
             print 'Starting band #',bandNum,' out of ',int(header['nrows']/options['blockSize']),' centered on row '+str(centerRow)
 
@@ -386,7 +422,7 @@ def omniscape(options):
             start_time0=elapsed_time(start_time0)           
 
             if options['endBand'] > 0:
-                print 'Ready to solve block row and col', centerRow, ',', centerCol, 'in stripe #',str(stripeNum),' and band#',bandNum,' out of ',options['endBand']
+                print 'Ready to solve block row and col', centerRow, ',', centerCol, 'in stripe #',str(stripeNum),' and band#',bandNum,' out of ',options['endBand']-1
             else:
                 print 'Ready to solve block row and col', centerRow, ',', centerCol, 'in stripe #',str(stripeNum),' and band#',bandNum,' out of ',int(header['nrows']/options['blockSize'])
             print 'Elapsed time so far: {0}'.format(datetime.datetime.now()-theStart)  
@@ -436,25 +472,27 @@ def omniscape(options):
                 
 #fixme- may not be compatible with subsources, weights, polygons, etc:
 #fixme: dont' mult by dists, but dist/options['radius']?
-
+            
             if options['fadeIn']:
 #temp    
-                subsetHeader = get_subset_header(currentArray, header, options, centerRow, centerCol)
-                yMin= max(subsetHeader['yllcorner'],subsetHeader['yllcorner'] + ((subsetHeader['nrows'] - subsetCenterRow - options['radius'] - 1) * subsetHeader['cellsize']))
-                LLC = arcpy.Point(subsetHeader['xllcorner'],yMin)
+                # subsetHeader = get_subset_header(currentArray, header, options, centerRow, centerCol)
+                # yMin= max(subsetHeader['yllcorner'],subsetHeader['yllcorner'] + ((subsetHeader['nrows'] - subsetCenterRow - options['radius'] - 1) * subsetHeader['cellsize']))
+                # LLC = arcpy.Point(subsetHeader['xllcorner'],yMin)
 
-                currentRaster = arcpy.NumPyArrayToRaster(currentArray,LLC, subsetHeader['cellsize'],subsetHeader['cellsize'],-9999)
-                currentRaster.save('c:\\temp\\curRas_iter'+str(iter) + '.tif')
+                # currentRaster = arcpy.NumPyArrayToRaster(currentArray,LLC, subsetHeader['cellsize'],subsetHeader['cellsize'],-9999)
+                # currentRaster.save('c:\\temp\\curRas_iter'+str(iter) + '.tif')
 #temp
                 
-                currentArray,fadeArray=fade_currents(currentArray, subsetCenterRow, subsetCenterCol)  
+                currentArray=fade_currents(currentArray, subsetCenterRow, subsetCenterCol)  
+
+                            
+                
 #FIXME- drop fadearray above
                 
-                currentRaster = arcpy.NumPyArrayToRaster(currentArray,LLC, subsetHeader['cellsize'],subsetHeader['cellsize'],-9999)
-                currentRaster.save('c:\\temp\\curRasFADE_iter'+str(iter) + '.tif')
-                fadeRaster = arcpy.NumPyArrayToRaster(fadeArray,LLC, subsetHeader['cellsize'],subsetHeader['cellsize'],-9999)
-                fadeRaster.save('c:\\temp\\fadeRas_iter'+str(iter) + '.tif')
-
+                # currentRaster = arcpy.NumPyArrayToRaster(currentArray,LLC, subsetHeader['cellsize'],subsetHeader['cellsize'],-9999)
+                # currentRaster.save('c:\\temp\\curRasFADE_iter'+str(iter) + '.tif')
+                # fadeRaster = arcpy.NumPyArrayToRaster(fadeArray,LLC, subsetHeader['cellsize'],subsetHeader['cellsize'],-9999)
+                # fadeRaster.save('c:\\temp\\fadeRas_iter'+str(iter) + '.tif')
 
 #put in fn once striping solved below
             if options['calcVoltages']:
@@ -645,6 +683,10 @@ def calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArr
     start_timeFA = elapsed_time(start_timeFA)
     return rFA2
     
+    
+    
+    
+
 @profile
 def fade_currents(currentArray,subsetCenterRow,subsetCenterCol):
     #fixme: could do these once (at least when current array is centered in band)
@@ -654,10 +696,20 @@ def fade_currents(currentArray,subsetCenterRow,subsetCenterCol):
     del grid
 
     subsetDistArray = npy.sqrt(npy.multiply(subsetRowArray - subsetCenterRow, subsetRowArray- subsetCenterRow) + npy.multiply(subsetColArray-subsetCenterCol, subsetColArray-subsetCenterCol))           
+#FIXME temp
+    subsetDistArray = subsetDistArray+options['fadeConstant'] #Need this so don't have zero current at center
     # fadeArray=npy.where(subsetDistArray<options['fadeInDist'],subsetDistArray/options['fadeInDist'],1)
-    fadeArray=npy.where(subsetDistArray<options['fadeInDist'],(0.975*subsetDistArray/options['fadeInDist'])+0.025,1)
+    
+    # fadeArray=npy.where(subsetDistArray<options['fadeInDist'],((1-options['fadeConstant'])*subsetDistArray/options['fadeInDist'])+options['fadeConstant'],1)
+    fadeArray=npy.where(subsetDistArray<options['fadeInDist'],subsetDistArray/(options['fadeInDist']+options['fadeConstant']),1)
+    # fadeArray=npy.where(subsetDistArray<options['fadeInDist'],subsetDistArray/(options['fadeInDist']),1)
+    # fadeArray[subsetCenterRow,subsetCenterCol] = options['fadeConstant']
+    print 'fade center'
+    print fadeArray[subsetCenterRow,subsetCenterCol]
+    print fadeArray[subsetCenterRow,subsetCenterCol+1]
+    print fadeArray[subsetCenterRow+1,subsetCenterCol+1]
     currentArray=npy.where(currentArray>0,npy.multiply(currentArray,fadeArray),currentArray)
-    return currentArray,fadeArray
+    return currentArray
     
     
 def square_resistances(resisRaster,options):
@@ -665,7 +717,9 @@ def square_resistances(resisRaster,options):
             fileBase, fileExtension = path.splitext(options['resisRasterBase'])
             resisRasterSQ = path.join(options['scratchDir'],'sq_'+fileBase+'.tif')
             outResistanceRaster = arcpy.sa.Times(resisRaster, resisRaster) 
+            
             outResistanceRaster.save(resisRasterSQ)
+            
             resisRaster = resisRasterSQ    
         return resisRaster
 
@@ -1081,8 +1135,8 @@ def set_options_and_dirs(options):
     if options['endBand'] is None: options['endBand'] = 0
     if options['endStripe'] is None: options['endStripe'] = 0
     
-    if options['radius'] <= options['blockSize']:
-        print 'Error. Radius must be larger than block size.'
+    if options['radius'] <= options['blockSize']/2:
+        print 'Error. Radius must be larger than half the block size.'
         exit(0)
 
     if float(options['blockSize'])/2 == int(options['blockSize']/2):
@@ -2372,3 +2426,32 @@ saveFade- sums up fades and saves. Will take more memory.
 
 # NOTE: this will fail if your project directory is in dropbox and is syncing.
 
+#experiment that didn't go anywhere- fade with a nudge is better.
+# @profile
+# def apportion_currents(circleResisArray,currentArray,subsetCenterRow,subsetCenterCol,options,multiplier):
+    # #fixme: test
+    # centerResistanceArray = center_block(circleResisArray, options, subsetCenterRow, subsetCenterCol) 
+    # centerConductanceArray = npy.where(centerResistanceArray>0,1/centerResistanceArray, 0)
+    # centerCurrentArray = center_block(currentArray, options, subsetCenterRow, subsetCenterCol) 
+    
+    # sumCenterConductances = centerConductanceArray.sum() #need NAN here
+
+    # print 'sumcond',sumCenterConductances
+    # shareConductanceArray = centerConductanceArray/sumCenterConductances
+
+    # # sumCenterCurrents = current at ground, or sum of currents 1 pixel away
+    # # sumCenterCurrents= multiplier
+    
+    # #sumCenterCurrents= sum of ALL currents in center
+    # sumCenterCurrents=centerCurrentArray.sum()  
+    
+    # print 'sumcur', sumCenterCurrents
+    # centerCurrentArrayNew = shareConductanceArray * sumCenterCurrents
+    # currentArray = npy.where(centerCurrentArrayNew>0,centerCurrentArrayNew, currentArray)
+    # print 'centerResis'
+    # print centerResistanceArray
+    # print 'centerConduc'
+    # print centerConductanceArray
+    # print 'centerCurrentArrayNew'
+    # print centerCurrentArrayNew
+    # return currentArray
