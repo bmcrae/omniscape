@@ -1,10 +1,18 @@
+# only save one omniscape.py file
+# subtract out sources from FA grid? could eliminate whiskers.
+
+# don't do int before band saves for flow, unless speed at issue
+# save int and intln flow files
+
+# Flow mapping
+# break out values into 10 classes
+# grow each class by value. Nah.
+# Have separate line layers for each class? Easier to have one on top of the other, transparancy etc.
+
+
 # go with fade... setting whole block to average of edges has its own artifacts.
+# Based on 25km comparisons, full block size fade distance works much better than half. Matches BS1 data well.
 
-# Instead of fading, partition current in block according to resistance?
-# doesn't work, neither does taking average current flowing in to edge cells of block and setting block to that value
-
-#large block sizes can lead to edge effects I think. edges of study area lack local connections. Shows up with distance function results (200km rad)
-# maybe not- #targonly reduces edge effects. above run was not targonly.
 
 # What if using distfn- does this mean targets in block that are not in center cell will have less weight?
 # either ignore or set center block source modifiers to 1
@@ -14,6 +22,7 @@
     # need to run components separately?
     # look at current flowing to ground to determine nsources? 
     # then divide current by this number, adjst nsources accordingly to get multiplier.
+
 # what if center ground is in nodata?
 # what if targets are not all in same component?
 
@@ -29,26 +38,19 @@ tile=-1 # For running overlapping tiles created by ArcGIS, to be stitched togeth
 options={}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 55# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['radius'] = 56# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
 options['blockSize'] = 1 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
-
-options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where output directory will be created.
-options['resisRasterBase'] = 'pnwR450Test.tif' # Resistance raster name. All input should be same extent, projection, etc.
-options['outputDirBase'] = 'subsetRing2'#DistPlus025_halfBS'#oneRuntestFadeDistPlus025'# will be created in project directory
-# options['projectDir'] = 'C:\\dropbox\\Working\\Circuitscape_BraidedThruway\\CF_PROOF'
-# options['resisRasterBase'] = 'EcologyResistances.asc'
-# options['resisRasterBase'] = '6x6r.asc'
 
 options['projectDir'] = r'C:\Dropbox\Working\AdaptWest\PC_mockup'
 options['resisRasterBase'] = 'HM_pow10_PNWmockup.tif'
-options['outputDirBase'] = 'PCmockupCountOnly2'
+options['outputDirBase'] = 'shortoutFolder2'
 
 options['useSourceRaster']=False # Use a layer specifying source/target pixels to connect. 0= no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
 options['sourceRasterBase'] = '6x6Sources.asc'# Name of source raster, if using one
 options['sourceInverseR']=False # Source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
-options['rCutoff'] = 10# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
+options['rCutoff'] = 2000# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
 options['squareResistances']=True # Will square resistance raster before doing any calculations. sourceInverseR and rCutoff applied before squaring.
 
 # CLIMATE ####
@@ -117,7 +119,6 @@ options['printTimings'] =  True
 #---------------------------------------------------------------------
 # END INPUTS #
 #---------------------------------------------------------------------
-
 from functools import wraps
 PROF_DATA = {}
 import os 
@@ -237,7 +238,10 @@ def omniscape(options):
             #xprint climateBandArray
             
         cumCurrentArray = npy.zeros(bandArray.shape, dtype = 'float64') 
-       
+        if options['saveSourceAndTargetCounts'] and options['useClimate']:
+            cumTargetArray = cumCurrentArray.copy() 
+            cumSourceArray = cumCurrentArray.copy()
+            
         if options['calcVoltages']: cumVdiffArray = cumCurrentArray.copy()
        
         subsetCenterRow = min(centerRow,options['radius'])
@@ -341,21 +345,8 @@ def omniscape(options):
             circleHeader = get_subset_header(sourceArray, header, options, centerRow, centerCol)
             yMin= circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
             if options['saveSourceAndTargetCounts'] and options['useClimate']:
-                stsave=time.clock()
-                # # Fixme: do cumulative layers. adddata, etc.
-                LLC = arcpy.Point(circleHeader['xllcorner'],yMin)
-                sourceRas = arcpy.NumPyArrayToRaster(sourceArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
-                # sourceRasFile = path.join(options['outputDir'], 'src_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.tif') 
-                arcpy.DefineProjection_management(sourceRas,spatialReference)
-                # sourceRas.save(sourceRasFile)
-                targetRas = arcpy.NumPyArrayToRaster(targetArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
-                # targetRasFile = path.join(options['outputDir'], 'targ_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.tif') 
-                arcpy.DefineProjection_management(targetRas,spatialReference)
-                # targetRas.save(targetRasFile)
-                cumTargetRaster = addData_arcpy(cumTargetRaster, targetRas) #fixme: could speed up by using numpy arrays within each band
-                cumSourceRaster = addData_arcpy(cumSourceRaster, sourceRas) 
-                print'saved'
-                stsave=elapsed_time(stsave)
+                cumSourceArray = addData(cumSourceArray, sourceArray, subsetCenterRow, centerCol, options)
+                cumTargetArray = addData(cumTargetArray, targetArray, subsetCenterRow, centerCol, options)
                 if options['doSourceAndTargetCountsOnly']:
                     continue
             #then normalizing. 1 amp injected, 1 amp taken out
@@ -526,6 +517,17 @@ def omniscape(options):
         del sourceCenterArray,bandArray,sourceBandArray
         if options['calcFA']:
             del bandArrayFA
+            
+        if options['saveSourceAndTargetCounts']:
+            yMin= max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
+            LLC = arcpy.Point(header['xllcorner'],yMin)
+            bandSourceRaster = arcpy.NumPyArrayToRaster(cumSourceArray,LLC, header['cellsize'],header['cellsize'],-9999)
+            cumSourceRaster = addData_arcpy(cumSourceRaster, bandSourceRaster)       
+        
+            del cumSourceArray, bandSourceRaster
+            bandTargetRaster = arcpy.NumPyArrayToRaster(cumTargetArray,LLC, header['cellsize'],header['cellsize'],-9999)
+            cumTargetRaster = addData_arcpy(cumTargetRaster, bandTargetRaster)       
+            del cumTargetArray, bandTargetRaster
         
         if solveInBand: #
             # bandRows=min(options['radius']*2+1,options['radius']+centerRow+1)
@@ -534,14 +536,13 @@ def omniscape(options):
 
             bandCurrentRaster = arcpy.NumPyArrayToRaster(cumCurrentArray,LLC, header['cellsize'],header['cellsize'],-9999)
                        
-            del cumCurrentArray
-            
             cumCurrentRaster = addData_arcpy(cumCurrentRaster, bandCurrentRaster)
-
+            del bandCurrentRaster,cumCurrentArray
             if options['calcVoltages']:
                 bandVdiffRaster = arcpy.NumPyArrayToRaster(cumVdiffArray,LLC,header['cellsize'],header['cellsize'],-9999)
                 cumVdiffRaster = addData_arcpy(cumVdiffRaster, bandVdiffRaster)
-                del cumVdiffArray
+                del cumVdiffArray, bandVdiffRaster
+                
             options = write_temp_maps(options,bandNum,cumCurrentRaster,cumVdiffRaster)
             
             
@@ -877,7 +878,7 @@ def add_random_resistances(resisRaster, options):
         outResisRaster = arcpy.sa.Plus(outRandomRaster, resisRaster) 
         outResisRaster.save(resisRasterFA)
         # resisRaster=resisRasterFA #Fixme: can this just be in memory isntead?
-    return resisRaster
+    return resisRasterFA
     
 def quantilize(raster):
     try:
@@ -2422,3 +2423,8 @@ saveFade- sums up fades and saves. Will take more memory.
     # print 'centerCurrentArrayNew'
     # print centerCurrentArrayNew
     # return currentArray
+# Instead of fading, partition current in block according to resistance?
+# doesn't work, neither does taking average current flowing in to edge cells of block and setting block to that value
+
+#large block sizes can lead to edge effects I think. edges of study area lack local connections. Shows up with distance function results (200km rad)
+# maybe not- #targonly reduces edge effects. above run was not targonly.
