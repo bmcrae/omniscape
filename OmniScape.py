@@ -1,71 +1,3 @@
-# one more targonly vs srctarg- 50km
-
-# fix code to limit by cwd
-
-# clean up and test
-# maxcur, maxflow to adjust for components
-
-# HOW TO DEAL WITH components/strengths
-# Don't connect anything > radius
-# if rad = 100km
-# water=400
-# 1km water = 400km cwd
-
-
-# Do FA first, limit by cwd?
-# - get rid of stuff surrounded by major barriers like seattle, puget sound, etc
-
-# Costal issue
-#noweight doesn't help
-# dividing current by focal sum doesn't really help- tip of peninsula lights up, but only because it has lots of nodata around it. shorelines don't really.
-
-# what if sources and targs in diff components? does that mess up multiplier?
-    # need to run components separately?
-    # remove nodata?
-    # look at current flowing to ground to determine nsources? 
-    # then divide current by this number, adjst nsources accordingly to get multiplier.
-
-# what if center ground is in nodata?
-# what if targets are not all in same component?
-
-# drop fade from flow?
-# try flow without rand... would be nice for results to be consistent across runs
-
-#try difference between run with some sources missing... does pattern look right?
-
-# do a donut on flow? just show long distance? 
-    # probably still get spaghetti. and more elegant to have same settings as current
-    
-# try to use inverse of FA as resistance. Could consolidate lines?
-    # it does consolidate, but not very predictable- suggest just doing major lines instead.
-
-
-# only save one omniscape.py file
-# subtract out sources from FA grid? could eliminate whiskers.
-    # this line: rFA = arcpy.sa.Plus(arcpy.sa.FlowAccumulation( rFD, sourceRasFA ), sourceRasFA) #Note! added in source strengths 8/15/15 
-# don't do int before band saves for flow, unless speed at issue
-# save int and intln flow files
-
-
-# Flow mapping
-# break out values into 10 classes
-# grow each class by value. Nah.
-# Have separate line layers for each class? Easier to have one on top of the other, transparancy etc.
-
-
-# go with fade... setting whole block to average of edges has its own artifacts.
-# Based on 25km comparisons, full block size fade distance works much better than half. Matches BS1 data well.
-
-
-# What if using distfn- does this mean targets in block that are not in center cell will have less weight?
-# either ignore or set center block source modifiers to 1
-# OK- targets are already 1, modify only works on sources.
-
-
-# write and read numpy grids?
-# adddata for FA?
-
-
 tile=-1 # For running overlapping tiles created by ArcGIS, to be stitched together later
 #---------------------------------------------------------------------
 # INPUTS #
@@ -73,12 +5,12 @@ tile=-1 # For running overlapping tiles created by ArcGIS, to be stitched togeth
 options={}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 111# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['radius'] = 333# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
 options['blockSize'] = 15 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
 options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where output directory will be created.
 options['resisRasterBase'] = 'clip_pnwR450Test.tif' # Resistance raster name. All input should be same extent, projection, etc.
-options['outputDirBase'] = 'a50km'
+options['outputDirBase'] = 'testcwd'
 
 options['useSourceRaster']=False # Use a layer specifying source/target pixels to connect. 0= no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
 options['sourceRasterBase'] = 'PERM450_topQuint.tif'#'srcInvR.tif'# Name of source raster, if using one
@@ -115,8 +47,8 @@ options['maxDist'] = None # Sources farther than this will have no current injec
 # FLOW ACCUMULATION CALCULATIONS ####
 options['calcFA']=True
 options['addRandomResistances']=True #add random values to FA resis raster
-options['limitCalcsByCWD']=False
-options['cwdLimit'] = options['radius']  * 5
+options['limitCalcsByCWD']=True
+options['cwdLimit'] = options['radius']
 
 # CURRENT CALCULATIONS ####
 options['calcCurrent']=True
@@ -143,7 +75,7 @@ options['negTargets']= False # Recommend False. negative sources at targets- blo
 
 
 # FADE CURRENTS #FIXME: check out divide by zero in fade calc
-options['fadeIn']=False# Decreases current from each solve linearly with distance to center. Helps with artifacts from blocks. Best with center ground.
+options['fadeIn']=True# Decreases current from each solve linearly with distance to center. Helps with artifacts from blocks. Best with center ground.
 from math import *
 options['fadeInDist']=(options['blockSize']-1)/2#/4.0#sqrt(2)*(options['blockSize']/2.0)#options['radius']/2 #
 options['fadeConstant']=0.25 # Constant added to numerator and denominator in fade equation. Avoids zero current at center ground. Higher values mean more current at ground 
@@ -403,7 +335,7 @@ def omniscape(options):
             
             groundAsciiFile = path.join(options['scratchDir'], 'ground_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.asc')            
             ascii_grid_writer(groundAsciiFile, groundArray, circleHeader, options)
-            # save_numpy(groundArray) #FIXME TEMP: shows that could save some time, not a huge amount.
+            # save_numpy(groundArray) #FIXME: shows that could save some time, not a huge amount.
             del groundArray 
             
             outputFN = 'target_r'+str(centerRow) + 'c' +str(centerCol)+'.out'
@@ -455,12 +387,9 @@ def omniscape(options):
                     
             if options['calcFA']:
                 rFA2 = calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArrayFA,iter,resisRaster)
-#fixme temp
                 # maxObject = arcpy.GetRasterProperties_management(rFA2, "MAXIMUM") 
-                # rasterMax = float(str(maxObject.getOutput(0)))
-                # # print 'MAX=',rasterMax
-                # print 'MAXCUR=',maxCur
-                # rFA2.save('rfax'+str(iter)+'.tif')
+                # maxFlow = float(str(maxObject.getOutput(0)))
+
             if options['weightTargOnly']:
                 if options['useClimate']:
                     multiplier = targetTally
@@ -478,9 +407,9 @@ def omniscape(options):
                 rFA3 = arcpy.sa.Times(rFA2, int(multiplier)) #fixme: may be faster to convert rfa or rfa2 into array and do numpy calcs for entire band, then add band in
                 centralityFile= path.join(options['scratchDir'],"FA3_iter" + str(iter) + '.tif')
                 cumFlowRaster = addData_arcpy(rFA3, cumFlowRaster)
-                
+                if options['limitCalcsByCWD']:
+                    delete_data(options['cwdRaster'])
 #fixme- may not be compatible with subsources, weights, polygons, etc:
-#fixme: dont' mult by dists, but dist/options['radius']?
             
 #put in fn once striping solved below
             if options['calcVoltages']:
@@ -679,15 +608,10 @@ def calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArr
     start_timeFA = time.clock()
     cbt=time.clock()
     # rOut = 'FA'
-    # rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#','c:\\temp\\cosdis2.tif')#, rOut + "d" + str(FID) ) #BHM can limit cwd here 999999999
     # cbt=elapsed_time(cbt)
-    rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#')#, rOut + "d" + str(FID) ) #BHM can limit cwd here 999999999
     # print 'without cb'
     # cbt=elapsed_time(cbt)
-    arcpy.Delete_management(outPoint)
     # rCB.save('c:\\temp\\acb'+str(iter)+'.tif')
-    rFD = arcpy.sa.Con( rCB > 0, arcpy.sa.Power(2, (rCB - 1))) 
-    rFD = arcpy.sa.Con( rCB == 0, 11, rFD) #Ensures that flow at target point will be accumulative
     # rFD.save('c:\\temp\\afd'+str(iter)+'.tif')
 
     # rFA = arcpy.sa.Plus(arcpy.sa.FlowAccumulation( rFD, sourceRasFA ), sourceRasFA) #Note! added in source strengths 8/15/15 
@@ -696,24 +620,30 @@ def calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArr
     # rFA = arcpy.sa.FlowAccumulation( rFD, sourceRasFA ) #Note! removed source strengths again   
 
     if options['limitCalcsByCWD']:
+        options['cwdRaster']=path.join(options['scratchDir'],'cwd'+str(iter)+'.tif')
+        rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#', options['cwdRaster'])#, rOut + "d" + str(FID) ) #BHM can limit cwd here 999999999
+        rFD = arcpy.sa.Con( rCB > 0, arcpy.sa.Power(2, (rCB - 1))) 
+        rFD = arcpy.sa.Con( rCB == 0, 11, rFD) #Ensures that flow at target point will be accumulative
+
         descData=arcpy.Describe(resisRasFA)#fixme: move out of loop so only done once
         cellSize=descData.MeanCellHeight
         cwdLimit = options['cwdLimit'] * cellSize
-        outCon = arcpy.sa.Con(arcpy.sa.Raster('c:\\temp\\cosdis2.tif')<cwdLimit,sourceRasFA,0)
-# disteq here
+        outCon = arcpy.sa.Con(arcpy.sa.Raster(options['cwdRaster'])<cwdLimit,sourceRasFA,0)
         
         rFA = arcpy.sa.FlowAccumulation( rFD, outCon ) #Note! removed source strengths again 
 
     else:
-        rFA = arcpy.sa.FlowAccumulation( rFD, sourceRasFA ) #Note! removed source strengths again   
-        # rFA = arcpy.sa.Plus(arcpy.sa.FlowAccumulation( rFD, sourceRasFA ), sourceRasFA) #Note! added in source strengths AGAIN    
-    # rFA.save('c:\\temp\\rFA_iter'+str(iter)+'.tif')
+        rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#')
+        rFD = arcpy.sa.Con( rCB > 0, arcpy.sa.Power(2, (rCB - 1))) 
+        rFD = arcpy.sa.Con( rCB == 0, 11, rFD) #Ensures that flow at target point will be accumulative
+
+        rFA = arcpy.sa.FlowAccumulation( rFD, sourceRasFA ) 
     
     rFA2=arcpy.sa.Con(arcpy.sa.IsNull(rFA),0,rFA)
-    # rFA3.save('c:\\temp\\rFA_iter'+str(iter)+'.tif')
     start_timeFA = elapsed_time(start_timeFA)
     arcpy.env.extent = oldExtent 
-     
+    arcpy.Delete_management(outPoint)
+    del rCB, rFD, rFA
     return rFA2
     
 

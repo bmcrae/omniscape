@@ -4,7 +4,7 @@ ehthumbs.db
 
 test*.py
 test.py
-
+info/*.*
 extras/
 
 # Folder config file
