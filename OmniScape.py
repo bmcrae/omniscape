@@ -1,38 +1,50 @@
-tile=-1 # For running overlapping tiles created by ArcGIS, to be stitched together later
+#does 100rad cwd lim fix islands? No. Even 10 has hood canal crossings. Trying 5.
+
+# settling on 100km, 270m, blocksize 25? 55?
+# run without cwdlim as well?
+
+# Does CWd lim need to change with dif cell size?
+# Need to fade Flowlines? 
+# just set flowlines to zero in block?
+
+tile = -1 # For running overlapping tiles created by ArcGIS, to be stitched together later
 #---------------------------------------------------------------------
 # INPUTS #
 #---------------------------------------------------------------------
-options={}
+options = {}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 333# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 15 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['radius'] = 370# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['blockSize'] = 55 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
-options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where output directory will be created.
-options['resisRasterBase'] = 'clip_pnwR450Test.tif' # Resistance raster name. All input should be same extent, projection, etc.
-options['outputDirBase'] = 'testcwd'
+options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'DUKE_CIRCUITSCAPE_resistances_draft6_R_max_270m_clip.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_R_max_540m_clip.tif'# # Resistance raster name. All input should be same extent, projection, etc.
+options['outputDirBase'] = 'test270100kmLimRad5'
 
-options['useSourceRaster']=False # Use a layer specifying source/target pixels to connect. 0= no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
-options['sourceRasterBase'] = 'PERM450_topQuint.tif'#'srcInvR.tif'# Name of source raster, if using one
-options['sourceInverseR']=True # Source strengths are inverse of input resistances (before squaring)
+options['useSourceRaster'] = True #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
+options['sourceRasterBase'] = 'DUKE_CIRCUITSCAPE_resistances_draft6_HABITAT_min_270m_clip.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
+options['sourceInverseR'] = False # Source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
 options['rCutoff'] = 2000# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
-options['squareResistances']=True # Will square resistance raster before doing any calculations. sourceInverseR and rCutoff applied before squaring.
+options['squareResistances'] = False # Will square resistance raster before doing any calculations. sourceInverseR and rCutoff applied before squaring.
+
+# CALCULATE MAXIMUM INSTEAD OF SUM OF CURRENT ACROSS ITERATIONS
+options['calcMaxCur'] = False #Note: this has more tiling/fading issues.
 
 # CLIMATE ####
-options['useClimate']=False
-options['matchClimatePCs']=True  # climate method- principle components if True, present-day temperature differences if False
+options['useClimate'] = False
+options['matchClimatePCs'] = True  # climate method- principle components if True, present-day temperature differences if False
 # parameters to match temperature differences
-options['tDiff']=4 # Match pixels that differ in temperature by this value
-options['tWindow']=1 #How close does target need to be to the tDiff value
-options['climateRasterBase'] ='tmean_adks.asc'#'6x6t1pc2.asc'#'6x6clim.asc'#'TMEAN_NE_clip.tif'
-options['absClim']=False # connect if ABS VAL of climate differs by tcutoff. Meant to help with fade.
+options['tDiff'] = 4 # Match pixels that differ in temperature by this value
+options['tWindow'] = 1 #How close does target need to be to the tDiff value
+options['climateRasterBase'] = 'tmean_adks.asc'#'6x6t1pc2.asc'#'6x6clim.asc'#'TMEAN_NE_clip.tif'
+options['absClim'] = False # connect if ABS VAL of climate differs by tcutoff. Meant to help with fade.
 # parameters to match current and future PCs
-options['t1PC1RasterBase'] ='NORM_6190_PC1_PNWmockup.tif'
-options['t1PC2RasterBase'] ='NORM_6190_PC2_PNWmockup.tif'
-options['t2PC1RasterBase'] ='MIROC5_2080s_RCP85_PC1_PNWmockup.tif'
-options['t2PC2RasterBase'] ='MIROC5_2080s_RCP85_PC2_PNWmockup.tif'
+options['t1PC1RasterBase'] = 'NORM_6190_PC1_PNWmockup.tif'
+options['t1PC2RasterBase'] = 'NORM_6190_PC2_PNWmockup.tif'
+options['t2PC1RasterBase'] = 'MIROC5_2080s_RCP85_PC1_PNWmockup.tif'
+options['t2PC2RasterBase'] = 'MIROC5_2080s_RCP85_PC2_PNWmockup.tif'
 options['PCWindow'] = 0.9 # Euclidean distance between PCs to determine match
 
 # DISTANCE FUNCTION#### 
@@ -45,50 +57,49 @@ options['maxDist'] = None # Sources farther than this will have no current injec
 # of current is injected farther from target. But can also happen when opposing (canceling) currents occur without min dist.
 
 # FLOW ACCUMULATION CALCULATIONS ####
-options['calcFA']=True
-options['addRandomResistances']=True #add random values to FA resis raster
-options['limitCalcsByCWD']=True
-options['cwdLimit'] = options['radius']
+options['calcFA'] = True
+options['addRandomResistances'] = True #add random values to FA resis raster
+options['limitCalcsByCWD'] = True
+options['cwdLimit'] = options['radius'] * 5
 
 # CURRENT CALCULATIONS ####
-options['calcCurrent']=True
-
+options['calcCurrent'] = True
 
 # OPTION TO LIMIT ANALYSIS EXTENT ####  
 # Bands are horizontal, with width equal to blockSize. There are approx nrows/blockSize bands in a raster. Stripes are vertical, with width equal to blocksize.
 # These options allow you to only process a subset of bands and stripes. 
 options['startBand'] = 0# First band to process. Use 0 to ignore.
-options['endBand'] =  0 # Stops BEFORE processing this band. Use 0 to ignore.
+options['endBand'] = 0 # Stops after processing this band. Use 0 to ignore.
 options['startStripe'] = 0 # First stripe to process. Use 0 to ignore.
-options['endStripe'] = 0 # Stops BEFORE processing this stripe. 0 to ignore.
+options['endStripe'] = 0 # Stops after processing this stripe. 0 to ignore.
 
 # VOLTAGES #### Note: code not complete yet!
-options['calcVoltages']=False
-options['adjustVoltages']=False
+options['calcVoltages'] = False
+options['adjustVoltages'] = False
 
 # TARGETS AND WEIGHTING ####
 options['weightTargOnly'] = True # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
 # Recommend not changing following
-options['noWeight']=False # Recommend False. 
-options['centerGround']=True# Recommend True.
-options['negTargets']= False # Recommend False. negative sources at targets- blocks can work better with centerground, fade out, and no neg targs.
+options['noWeight'] = False # Recommend False. 
+options['centerGround'] = True# Recommend True.
+options['negTargets'] = False # Recommend False. negative sources at targets- blocks can work better with centerground, fade out, and no neg targs.
 
 
 # FADE CURRENTS #FIXME: check out divide by zero in fade calc
-options['fadeIn']=True# Decreases current from each solve linearly with distance to center. Helps with artifacts from blocks. Best with center ground.
+options['fadeIn'] = True# Decreases current from each solve linearly with distance to center. Helps with artifacts from blocks. Best with center ground.
 from math import *
-options['fadeInDist']=(options['blockSize']-1)/2#/4.0#sqrt(2)*(options['blockSize']/2.0)#options['radius']/2 #
-options['fadeConstant']=0.25 # Constant added to numerator and denominator in fade equation. Avoids zero current at center ground. Higher values mean more current at ground 
+options['fadeInDist'] = options['blockSize'] #(options['blockSize'])#-1)/2#/4.0#sqrt(2)*(options['blockSize']/2.0)#options['radius']/2 #
+options['fadeConstant'] = 0.25 # Constant added to numerator and denominator in fade equation. Avoids zero current at center ground. Higher values mean more current at ground 
 
 # Quantilize maps ####
 options['quantilizeMaps'] = True # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
 options['numQuantiles'] = 100
 
 # SPECIAL FUNCTIONS
-options['calcNull']=False # Calculates a 'null' result with all resistances = 1.
+options['calcNull'] = False # Calculates a 'null' result with all resistances = 1.
 options['saveSourceAndTargetCounts'] = True # #Save source and target counts when doing climate analyses
 options['doSourceAndTargetCountsOnly'] = True # if saving counts, DON'T calculate current
-options['printTimings'] =  True
+options['printTimings'] = True
 #---------------------------------------------------------------------
 # END INPUTS #
 #---------------------------------------------------------------------
@@ -112,7 +123,7 @@ import glob
 # from lm_retry_decorator import retry
 
 arcpy.CheckOutExtension("Spatial")
-arcpy.env.overwriteOutput=True
+arcpy.env.overwriteOutput = True
 
 def omniscape(options):
     theStart = datetime.datetime.now()  
@@ -126,9 +137,10 @@ def omniscape(options):
 
     # Set raster paths and export to ascii if needed. FIXME: don't really need ascii, just convenient for header code for now
     resisRaster = path.join(options['projectDir'],options['resisRasterBase'])
-    descData=arcpy.Describe(resisRaster)
-    spatialReference=descData.spatialReference
-
+    descData = arcpy.Describe(resisRaster)
+    spatialReference = descData.spatialReference
+    options['cellSize'] = descData.MeanCellHeight
+    
     if options['useClimate']:
         if options['matchClimatePCs']:
             t1PC1Raster = path.join(options['projectDir'],options['t1PC1RasterBase'])
@@ -152,18 +164,18 @@ def omniscape(options):
     if options['calcCurrent']:
         cumCurrentRaster = arcpy.sa.Con((arcpy.Raster(resisRaster) > 0),0,0)
     else:
-        cumCurrentRaster=None
+        cumCurrentRaster = None
     
     if options['calcFA']:    
         resisRasterFA = add_random_resistances(resisRaster,options)
     
     header = get_header(resisRaster)
       
-    descData=arcpy.Describe(resisRaster)
-    arcpy.env.extent=descData.Extent    
+    descData = arcpy.Describe(resisRaster)
+    arcpy.env.extent = descData.Extent    
     
     if options['calcVoltages']:
-        cumVdiffRaster  = arcpy.sa.Con((arcpy.Raster(resisRaster) > 0),0,0)   
+        cumVdiffRaster = arcpy.sa.Con((arcpy.Raster(resisRaster) > 0),0,0)   
     else: cumVdiffArray = cumVdiffRaster = None       
     if options['calcFA']:
         cumFlowRaster = arcpy.sa.Con((arcpy.Raster(resisRaster) > 0),0,0)
@@ -176,20 +188,20 @@ def omniscape(options):
     
     if options['endBand'] == 0:
         approxEndBand = str(int(header['nrows']/options['blockSize'])+1)
-    else: approxEndBand = str(options['endBand']-1)
+    else: approxEndBand = str(options['endBand'])
     if options['endStripe'] == 0:
         approxEndStripe = str(int(header['ncols']/options['blockSize'])+1)
-    else: approxEndStripe = str(options['endStripe']-1)
+    else: approxEndStripe = str(options['endStripe'])
 
     iter = 0
     bandNum = 0
     start_time0 = time.clock()
 
     for centerRow in range((options['blockSize']-1)/2,header['nrows'],options['blockSize']):
-        solveInBand=False
+        solveInBand = False
         bandNum += 1 
         if options['startBand'] > 0 and bandNum < options['startBand']: continue
-        if options['endBand'] > 0 and bandNum >= options['endBand']: break
+        if options['endBand'] > 0 and bandNum >= options['endBand']+1: break
         print 'Starting band #',str(bandNum)+'/'+approxEndBand,' centered on row '+str(centerRow)
 
         bandArray = band(resisRaster,header,centerRow, options)
@@ -223,14 +235,13 @@ def omniscape(options):
             cumSourceArray = cumCurrentArray.copy()
             
         if options['calcVoltages']: cumVdiffArray = cumCurrentArray.copy()
-       
         subsetCenterRow = min(centerRow,options['radius'])
         
         # Check for all nodata in center band of resistance raster
         if options['blockSize']>1:
-            bandCenterArray=bandArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2),:]
+            bandCenterArray = bandArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2),:]
         else:
-            bandCenterArray=bandArray[subsetCenterRow,:]
+            bandCenterArray = bandArray[subsetCenterRow,:]
          
         if npy.max(bandCenterArray) == -9999:       
             del bandCenterArray
@@ -238,28 +249,28 @@ def omniscape(options):
         del bandCenterArray
         
         if options['blockSize']>1:
-            sourceCenterArray=sourceBandArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2+1),:]
+            sourceCenterArray = sourceBandArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2+1),:]
         else:
-            sourceCenterArray=sourceBandArray[subsetCenterRow,:]
+            sourceCenterArray = sourceBandArray[subsetCenterRow,:]
             
-        if npy.max(sourceCenterArray) <=0:            
+        if npy.max(sourceCenterArray) <= 0:            
             print 'no targets; continuing' #fixme: need to differently handle sources and targets
             del sourceCenterArray
             continue
         # del sourceCenterArray fixme: saving for now to quickly look for valid target areas 
         
-        sourceCenterArraySum0 = npy.sum(npy.where(sourceCenterArray > 0, sourceCenterArray, 0), axis=0)
+        sourceCenterArraySum0 = npy.sum(npy.where(sourceCenterArray > 0, sourceCenterArray, 0), axis = 0)
         
         grid = npy.indices((bandArray.shape))
         rowArray = grid[0]
         colArray = grid[1]
         del grid
-        stripeNum=0
+        stripeNum = 0
         for centerCol in range((options['blockSize']-1)/2, header['ncols'],options['blockSize']):
             iter += 1
             stripeNum += 1
             if options['startStripe'] > 0 and stripeNum < options['startStripe']: continue
-            if options['endStripe'] > 0 and stripeNum >= options['endStripe']: break
+            if options['endStripe'] > 0 and stripeNum >= options['endStripe']+1: break
 
             print 'Band #',bandNum,'Stripe #',stripeNum
 #fixme- check this:
@@ -280,7 +291,7 @@ def omniscape(options):
             if options['calcFA']:            
                 circleResisArrayFA = circ(bandArrayFA, rowArray, colArray, subsetCenterRow, centerCol, options)
 
-            sourceArray= circ(sourceBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
+            sourceArray = circ(sourceBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
             sourceArray = npy.where(sourceArray < 0, 0, sourceArray)    #fixme- just set nodata sources to zero earlier    
 
             targetArray = center_block(sourceArray, options, subsetCenterRow, subsetCenterCol)                             
@@ -310,11 +321,11 @@ def omniscape(options):
                     sourceArray, targetArray, sourceSum, targetSum, targetTally = match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, t2PC1BandArray, t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)                
                 else:
                     sourceArray, targetArray, sourceSum, targetSum, targetTally = match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)                
-            if sourceSum == 0 or targetSum==0:
+            if sourceSum == 0 or targetSum == 0:
                 continue 
                     
             circleHeader = get_subset_header(sourceArray, header, options, centerRow, centerCol)
-            yMin= circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
+            yMin = circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
             if options['saveSourceAndTargetCounts'] and options['useClimate']:
                 cumSourceArray = addData(cumSourceArray, sourceArray, subsetCenterRow, centerCol, options)
                 cumTargetArray = addData(cumTargetArray, targetArray, subsetCenterRow, centerCol, options)
@@ -340,39 +351,58 @@ def omniscape(options):
             
             outputFN = 'target_r'+str(centerRow) + 'c' +str(centerCol)+'.out'
             outputFile = path.join(options['scratchDir'], outputFN)
-
-# For FA, save as resistance grid
             resisAsciiFile = path.join(options['scratchDir'], 'resis_r'+str(centerRow) + 'c' +str(centerCol)+'iter'+str(iter)+'.asc') 
 
             if options['calcCurrent']:
                 csOptions = setCircuitscapeOptions(resisAsciiFile,sourceAsciiFile,groundAsciiFile,outputFile)
 
             if options['calcVoltages']:
-                csOptions['write_volt_maps']=True
+                csOptions['write_volt_maps'] = True
             
             if options['calcNull']:
-                circleResisArray= npy.where(circleResisArray>0,1,circleResisArray)
+                circleResisArray = npy.where(circleResisArray>0,1,circleResisArray)
                 if options['calcFA']:
-                    circleResisArrayFA= npy.where(circleResisArrayFA>0,1,circleResisArrayFA)
-            if options['calcCurrent']:
-                ascii_grid_writer(resisAsciiFile, circleResisArray, circleHeader, options)
+                    circleResisArrayFA = npy.where(circleResisArrayFA>0,1,circleResisArrayFA)
 
             print '\nDone with prep'
-            start_time0=elapsed_time(start_time0)           
+            start_time0 = elapsed_time(start_time0)           
 
 
             print 'Ready to solve block row and col', centerRow, ',', centerCol, 'in stripe #',str(stripeNum)+'/'+approxEndStripe,' and band#',str(bandNum)+'/'+approxEndBand
             print 'Elapsed time so far: {0}'.format(datetime.datetime.now()-theStart)  
             
             solveInBand = True
+            if options['calcFA']:
+                rFA2, options, flowSourceCorrection, maxFlow = calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArrayFA,iter,resisRaster)
+                if maxFlow <= 0:
+                    print 'NO FLOW, continuing'
+                    continue
+                    
             if options['calcCurrent']:
+                if options['limitCalcsByCWD']:          
+                    LLC = arcpy.Point(circleHeader['xllcorner'],circleHeader['yllcorner'])
+                    # cwdLimit = (options['cwdLimit'] * options['cellSize'])
+                    cwdArray = arcpy.RasterToNumPyArray(options['cwdRaster'],LLC,"#","#",-9999)  
+                    
+                    # Fixme: put in fn
+                    if cwdArray.shape[1] > circleHeader['ncols']: #FIXME: temp fix because random raster yields bands that are 1 too long for some reason      
+                        print 'Array is too long'
+                        print 'ncols',circleHeader['ncols']
+                        print 'shape',cwdArray.shape[1]
+                        print 'last col min,max', npy.min(cwdArray[:,circleHeader['ncols']]), npy.max(cwdArray[:,circleHeader['ncols']])
+                        print 'Col 0 min,max', npy.min(cwdArray[:,0]), npy.max(cwdArray[:,0])
+                        cwdArray = cwdArray[:,1:circleHeader['ncols']]                       
+                    circleResisArray = npy.where((cwdArray < 0), -9999, circleResisArray)
+                    # circleResisArray = npy.where((cwdArray < 0),circleResisArray, -9999) #
+                    del cwdArray
+
+                ascii_grid_writer(resisAsciiFile, circleResisArray, circleHeader, options)
                 curMapPath, outConfigFile = calc_current(options, csOptions, centerRow, centerCol) 
                 if not path.exists(curMapPath):
                     print "Can't find circuitscape output"
                     exit(0)
                     continue
                 currentArray = ascii_grid_reader(curMapPath, header['nodata'], 'float64')
-                
                 if options['centerGround']:
                     maxCur = currentArray[subsetCenterRow, subsetCenterCol]
                 else:
@@ -380,19 +410,18 @@ def omniscape(options):
                 if maxCur <= 0:
                     print 'NO CURRENT, continuing'
                     continue
+                
+                currentSourceCorrection = 1
+                if (options['weightTargOnly']) or (options['noWeight']):
+                    if 1-maxCur > 0.01:
+                        currentSourceCorrection = maxCur
 
                 if options['fadeIn']:
                     currentArray = fade_currents(currentArray, subsetCenterRow, subsetCenterCol, options)  
-
                     
-            if options['calcFA']:
-                rFA2 = calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArrayFA,iter,resisRaster)
-                # maxObject = arcpy.GetRasterProperties_management(rFA2, "MAXIMUM") 
-                # maxFlow = float(str(maxObject.getOutput(0)))
-
             if options['weightTargOnly']:
                 if options['useClimate']:
-                    multiplier = targetTally
+                    multiplier = targetTally 
                 else:
                     multiplier = targetSum
             elif options['useClimate']:
@@ -403,16 +432,32 @@ def omniscape(options):
                 multiplier = sourceSum * targetSum #fixme: combos of large radii and large blocks can exceed the ~2.1 billion limit for int32. Even going to int64 seems to crash arc.sa.Times.
             
             del sourceArray
-            if options['calcFA']:
-                rFA3 = arcpy.sa.Times(rFA2, int(multiplier)) #fixme: may be faster to convert rfa or rfa2 into array and do numpy calcs for entire band, then add band in
-                centralityFile= path.join(options['scratchDir'],"FA3_iter" + str(iter) + '.tif')
+            if options['calcFA']:                     
+                flowMultiplier = multiplier/flowSourceCorrection
+                #fixme: next line uses int, does this negatively affect any cases?
+                rFA3 = arcpy.sa.Times(rFA2, int(flowMultiplier)) #fixme: may be faster to convert rfa or rfa2 into array and do numpy calcs for entire band, then add band in
                 cumFlowRaster = addData_arcpy(rFA3, cumFlowRaster)
                 if options['limitCalcsByCWD']:
                     delete_data(options['cwdRaster'])
+
+                    
+                    
 #fixme- may not be compatible with subsources, weights, polygons, etc:
             
 #put in fn once striping solved below
+            if options['calcCurrent']:
+                currentMultiplier = multiplier/currentSourceCorrection  
+                currentArray = currentArray * currentMultiplier    
+                delete_data(outConfigFile)
+                delete_data(curMapPath)
+                delete_data(resisAsciiFile)
+                delete_data(sourceAsciiFile)
+                cumCurrentArray = addData(cumCurrentArray, currentArray, subsetCenterRow, centerCol, options)
+                del currentArray
+
+
             if options['calcVoltages']:
+
                 voltMapPath = path.join(options['scratchDir'], 'target_r'+str(centerRow) + 'c' +str(centerCol) + '_voltmap.asc')
                 voltMap = (ascii_grid_reader(voltMapPath, header['nodata'], 'float64'))
                 voltMap = npy.where(circleResisArray<0,npy.nan,voltMap)
@@ -420,43 +465,33 @@ def omniscape(options):
                 #xprint voltMap
                 
                 max_vdiff = get_max_vdiff(voltMap,circleResisArray,csOptions)
-                max_vdiff=npy.where(npy.isnan(max_vdiff),0,max_vdiff)
-                #xprint 'vidiff'
-                #xprint max_vdiff
-                # blarg
+                max_vdiff = npy.where(npy.isnan(max_vdiff),0,max_vdiff)
+
 # fixme temp fix for striping at edges
-                max_vdiff[0,::]=0
-                max_vdiff[:,0]=0
-                max_vdiff[:,circleHeader['ncols']-1]=0
-                max_vdiff[circleHeader['nrows']-1,:]=0
+                max_vdiff[0,::] = 0
+                max_vdiff[:,0] = 0
+                max_vdiff[:,circleHeader['ncols']-1] = 0
+                max_vdiff[circleHeader['nrows']-1,:] = 0
                 # vDiffPath = path.join(options['scratchDir'], 'target_r'+str(centerRow) + 'c' +str(centerCol) + '_VDIFF.asc')
                 # ascii_grid_writer(vDiffPath, max_vdiff, circleHeader, options)
 
                 if options['fadeIn']: #Fixme: do we want to fade voltages?
-                    max_vdiff = npy.where(max_vdiff>0,npy.multiply(max_vdiff,fadeArray),max_vdiff)
-                    del fadeArray
+                    max_vdiff = fade_currents(max_vdiff, subsetCenterRow, subsetCenterCol, options)  
+                    # npy.where(max_vdiff>0,npy.multiply(max_vdiff,fadeArray),max_vdiff)
+                    # del fadeArray
 
-                if options['weightTargOnly']:
-                    max_vdiff = targetSum * max_vdiff
-                elif options['noWeight']:
-                    pass
-                else:    
-                    max_vdiff = sourceSum * targetSum * max_vdiff
+                max_vdiff = currentMultiplier * max_vdiff       
+                # if options['weightTargOnly']:
+                    # # fixme: need to adjust multiplier for currentAdjustment?
+                    # max_vdiff = targetSum * max_vdiff
+                # elif options['noWeight']:
+                    # pass
+                # else:    
+                    # max_vdiff = sourceSum * targetSum * max_vdiff
                 cumVdiffArray = addData(cumVdiffArray, max_vdiff, subsetCenterRow, centerCol, options)
-           
                 delete_data(voltMapPath)
             delete_data(groundAsciiFile)
-            
-            del circleResisArray    
-            if options['calcCurrent']:
-                currentArray = currentArray * multiplier    
-                delete_data(outConfigFile)
-                delete_data(curMapPath)
-                delete_data(resisAsciiFile)
-                delete_data(sourceAsciiFile)
-                cumCurrentArray = addData(cumCurrentArray, currentArray, subsetCenterRow, centerCol, options)
-                del currentArray
-            
+            del circleResisArray               
             start_time1 = time.clock()
 
 # FIXME: do all raster stuff for each band, not each solve
@@ -470,7 +505,7 @@ def omniscape(options):
             del bandArrayFA
             
         if options['saveSourceAndTargetCounts']:
-            yMin= max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
+            yMin = max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
             LLC = arcpy.Point(header['xllcorner'],yMin)
             bandSourceRaster = arcpy.NumPyArrayToRaster(cumSourceArray,LLC, header['cellsize'],header['cellsize'],-9999)
             cumSourceRaster = addData_arcpy(cumSourceRaster, bandSourceRaster)       
@@ -482,7 +517,7 @@ def omniscape(options):
         
         if solveInBand: #
             if options['calcCurrent']:
-                yMin= max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
+                yMin = max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
                 LLC = arcpy.Point(header['xllcorner'],yMin)
 
                 bandCurrentRaster = arcpy.NumPyArrayToRaster(cumCurrentArray,LLC, header['cellsize'],header['cellsize'],-9999)
@@ -553,9 +588,9 @@ def clear_prof_data():
 # To evaluate speed differences. definitely faster than saving and reading asciis. may speed up cs too?    
 # @profile
 # def save_numpy(array):
-    # npyFile=r'c:\temp\temp.npy'
+    # npyFile = r'c:\temp\temp.npy'
     # npy.save(npyFile, array)     
-    # npyArray = npy.load(npyFile, mmap_mode=None)
+    # npyArray = npy.load(npyFile, mmap_mode = None)
 
     
 @profile
@@ -563,7 +598,7 @@ def calc_current(options, csOptions, centerRow, centerCol):
     configFN = 'config_target_b'+str(centerRow) + 'c' +str(centerCol)+'.ini'
     outConfigFile = path.join(options['scratchDir'], configFN)
     writeCircuitscapeConfigFile(outConfigFile, csOptions)  
-    solveInBand=True
+    solveInBand = True
     CSPATH = get_cs_path()                            
     start_time1 = time.clock()
     call_circuitscape(CSPATH, outConfigFile)
@@ -575,14 +610,15 @@ def calc_current(options, csOptions, centerRow, centerCol):
     delete_data(path.join(options['scratchDir'], configFN2))
 
     curMapPath = path.join(options['scratchDir'], 'target_r'+str(centerRow) + 'c' +str(centerCol) + '_curmap.asc')
+    # Adjust currents if some sources in different components than target block
+    
     return curMapPath, outConfigFile
 
 @profile
 def calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArrayFA, iter, resisRaster):
-    # fixme: convoluted way to get a shapefile via raster conversion. simplify
-    # FA point
     oldExtent = arcpy.env.extent
     arcpy.env.extent = "MAXOF"
+    # fixme: convoluted way to get a shapefile via raster conversion. simplify
     outPoint = path.join(options['scratchDir'], 'point_iter'+str(iter)+'.shp')
     if arcpy.Exists(outPoint):
         arcpy.Delete_management(outPoint)
@@ -590,63 +626,56 @@ def calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArr
     
     arcpy.RasterToPoint_conversion(groundAsciiFile, outPoint, field)    
     LLC = arcpy.Point(circleHeader['xllcorner'],yMin)
-
-    sourceRasFA = arcpy.NumPyArrayToRaster(sourceArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
-
-    # sourceRasFA.save('c:\\temp\\asources'+str(iter)+'.tif')
-    
+    sourceRasFA = arcpy.NumPyArrayToRaster(sourceArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)       
     resisRasFA = arcpy.NumPyArrayToRaster(circleResisArrayFA,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)    
-    
-    # sourceRasFA.save(path.join(options['scratchDir'],'source'+str(iter)+'.tif')) #fixme not needed    
-    # resisRasFA.save(path.join(options['scratchDir'],'resis'+str(iter)+'.tif')) #fixme not needed       
-    # arcpy.DefineProjection_management(path.join(options['scratchDir'],'source'+str(iter)+'.tif'),spatialReference)
-    # arcpy.DefineProjection_management(path.join(options['scratchDir'],'resis'+str(iter)+'.tif'),spatialReference)
     del circleResisArrayFA
     
-    # arcpy.env.extent = oldExtent #FIXME: Need to run FA on whole grid extent for adddata_arcpy to work. 
     print '\nStarting flow accumulation'
     start_timeFA = time.clock()
-    cbt=time.clock()
-    # rOut = 'FA'
-    # cbt=elapsed_time(cbt)
-    # print 'without cb'
-    # cbt=elapsed_time(cbt)
-    # rCB.save('c:\\temp\\acb'+str(iter)+'.tif')
-    # rFD.save('c:\\temp\\afd'+str(iter)+'.tif')
-
-    # rFA = arcpy.sa.Plus(arcpy.sa.FlowAccumulation( rFD, sourceRasFA ), sourceRasFA) #Note! added in source strengths 8/15/15 
-    
-# fixme temp calc fa
-    # rFA = arcpy.sa.FlowAccumulation( rFD, sourceRasFA ) #Note! removed source strengths again   
-
     if options['limitCalcsByCWD']:
-        options['cwdRaster']=path.join(options['scratchDir'],'cwd'+str(iter)+'.tif')
-        rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#', options['cwdRaster'])#, rOut + "d" + str(FID) ) #BHM can limit cwd here 999999999
+        options['cwdRaster'] = path.join(options['scratchDir'],'cwd'+str(iter)+'.tif')
+        cwdLimit = options['cwdLimit'] * options['cellSize']
+        rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, cwdLimit, options['cwdRaster'])#, rOut + "d" + str(FID) ) #BHM can limit cwd here 999999999
         rFD = arcpy.sa.Con( rCB > 0, arcpy.sa.Power(2, (rCB - 1))) 
-        rFD = arcpy.sa.Con( rCB == 0, 11, rFD) #Ensures that flow at target point will be accumulative
+        rFD = arcpy.sa.Con( rCB == 0, 11, rFD) #Bogus direction ensures that flow at target point will be accumulative
 
-        descData=arcpy.Describe(resisRasFA)#fixme: move out of loop so only done once
-        cellSize=descData.MeanCellHeight
-        cwdLimit = options['cwdLimit'] * cellSize
-        outCon = arcpy.sa.Con(arcpy.sa.Raster(options['cwdRaster'])<cwdLimit,sourceRasFA,0)
-        
-        rFA = arcpy.sa.FlowAccumulation( rFD, outCon ) #Note! removed source strengths again 
+        # outCon = arcpy.sa.Con(arcpy.sa.Raster(options['cwdRaster'])<cwdLimit,sourceRasFA,0)       
+        rFA = arcpy.sa.FlowAccumulation( rFD, sourceRasFA ) #Note! removed source strengths again 
 
     else:
         rCB = arcpy.sa.CostBackLink(outPoint, resisRasFA, '#')
         rFD = arcpy.sa.Con( rCB > 0, arcpy.sa.Power(2, (rCB - 1))) 
-        rFD = arcpy.sa.Con( rCB == 0, 11, rFD) #Ensures that flow at target point will be accumulative
-
+        rFD = arcpy.sa.Con( rCB == 0, 11, rFD) #Bogus direction ensures that flow at target point will be accumulative
         rFA = arcpy.sa.FlowAccumulation( rFD, sourceRasFA ) 
     
-    rFA2=arcpy.sa.Con(arcpy.sa.IsNull(rFA),0,rFA)
+    rFA2 = arcpy.sa.Con(arcpy.sa.IsNull(rFA),0,rFA)
     start_timeFA = elapsed_time(start_timeFA)
     arcpy.env.extent = oldExtent 
     arcpy.Delete_management(outPoint)
     del rCB, rFD, rFA
-    return rFA2
+    # Adjust flow if some sources in different components than target block
+    flowSourceCorrection = 1 
+    if (options['weightTargOnly']) or (options['noWeight']):
+        #Need to know if some sources were in different components than target block
+        # if noweight, divide by sourceCorrection
+        # if targonly, ""
+        # else, do nothing (washes out)  
+        stx=time.clock()
+        maxFlow = get_raster_max(rFA2)
+        if 1-maxFlow > 0.01 and maxFlow > 0:
+            flowSourceCorrection = maxFlow
+        print 'max calc'
+        stx=elapsed_time(stx)
+    return rFA2, options, flowSourceCorrection, maxFlow
     
 
+@profile
+def get_raster_max(raster):
+    maxObject = arcpy.GetRasterProperties_management(raster, "MAXIMUM") 
+    max = float(str(maxObject.getOutput(0)))
+    return max
+
+    
 @profile
 def fade_currents(currentArray, subsetCenterRow, subsetCenterCol, options):
     grid = npy.indices((currentArray.shape))
@@ -654,15 +683,18 @@ def fade_currents(currentArray, subsetCenterRow, subsetCenterCol, options):
     subsetColArray = grid[1]
     del grid
     subsetDistArray = npy.sqrt(npy.multiply(subsetRowArray - subsetCenterRow, subsetRowArray- subsetCenterRow) + npy.multiply(subsetColArray-subsetCenterCol, subsetColArray-subsetCenterCol))           
-    fadeArray=npy.where(subsetDistArray<options['fadeInDist'],(subsetDistArray+options['fadeConstant'])/(options['fadeInDist']+options['fadeConstant']),1)
-    currentArray=npy.where(currentArray>0,npy.multiply(currentArray,fadeArray),currentArray)
+    fadeArray = npy.where(subsetDistArray<options['fadeInDist'],(subsetDistArray+options['fadeConstant'])/(options['fadeInDist']+options['fadeConstant']),1)
+
+#fixme temp
+    # fadeArray = npy.where(subsetDistArray<options['fadeInDist'],0,1)
+    currentArray = npy.where(currentArray>0,npy.multiply(currentArray,fadeArray),currentArray)
     return currentArray 
     
     
 def square_resistances(inRaster,options):
         if options['squareResistances']: 
-            descData=arcpy.Describe(inRaster)
-            arcpy.env.extent=descData.Extent    
+            descData = arcpy.Describe(inRaster)
+            arcpy.env.extent = descData.Extent    
 
             fileBase, fileExtension = path.splitext(options['resisRasterBase'])
             resisRasterSQ = path.join(options['scratchDir'],'sq_'+fileBase+'.tif')
@@ -675,21 +707,21 @@ def square_resistances(inRaster,options):
 def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, t2PC1BandArray, t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options):                
     print 'Starting climate using PCs'
     start_timeClimate = time.clock()
-    t1PC1Array= circ(t1PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
-    t1PC2Array= circ(t1PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
-    t2PC1Array= circ(t2PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
-    t2PC2Array= circ(t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
-    sourceArrayNew=npy.zeros(sourceArray.shape,dtype='float64')
-    # targetArrayNew=npy.zeros(sourceArray.shape,dtype='float64')
+    t1PC1Array = circ(t1PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+    t1PC2Array = circ(t1PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+    t2PC1Array = circ(t2PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+    t2PC2Array = circ(t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+    sourceArrayNew = npy.zeros(sourceArray.shape,dtype = 'float64')
+    # targetArrayNew = npy.zeros(sourceArray.shape,dtype = 'float64')
     
     # indices of valid targets
-    tRows, tCols=npy.where(targetArray)
-    targetTally=0
+    tRows, tCols = npy.where(targetArray)
+    targetTally = 0
 
     for i in range(0,len(tRows)):
-        t2PC1Target=t2PC1Array[tRows[i],tCols[i]]     #Targets are future. Fixme: would need to calculate t1pcs for targets if doing absclim analogy
-        t2PC2Target=t2PC2Array[tRows[i],tCols[i]] 
-        if t2PC1Target==-9999 or t2PC2Target == -9999: #fixme: do nans
+        t2PC1Target = t2PC1Array[tRows[i],tCols[i]]     #Targets are future. Fixme: would need to calculate t1pcs for targets if doing absclim analogy
+        t2PC2Target = t2PC2Array[tRows[i],tCols[i]] 
+        if t2PC1Target == -9999 or t2PC2Target == -9999: #fixme: do nans
             targetArray[tRows[i],tCols[i]] = 0
             continue
         PC1DistArray = t1PC1Array - t2PC1Target #fixme: do nans here
@@ -707,22 +739,22 @@ def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, 
         if len(sourceArray) < 10:
             print 'PCDistArray '
             print PCDistArray 
-        PCCutoffArray=npy.where((PCDistArray>= -options['PCWindow']) & (PCDistArray<=options['PCWindow']),1,0) 
+        PCCutoffArray = npy.where((PCDistArray>= -options['PCWindow']) & (PCDistArray<= options['PCWindow']),1,0) 
         if len(sourceArray) < 10:
             print 'PCCutoffArray'
             print PCCutoffArray
-        sourceArrayTarget_i=npy.multiply(sourceArray,PCCutoffArray)# sources for this target cell
+        sourceArrayTarget_i = npy.multiply(sourceArray,PCCutoffArray)# sources for this target cell
         if npy.max(sourceArrayTarget_i)>0:
-            targetTally+=1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
+            targetTally+= 1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
         
         # For climate, may have more or fewer targets. Need to scale sources by ntargs, and targets by nsources
-        sourceArrayNew=sourceArrayNew+sourceArrayTarget_i
+        sourceArrayNew = sourceArrayNew+sourceArrayTarget_i
         
 #?/ not sure how to handle                                        
 #This is where sourcesum and targetsum become the same                    
 # putting in current equal to nsource*ntarg, taking same out. then normalizing to unit current. then mult by nsource*ntarg.
         #taking same out. 
-        targetArray[tRows[i],tCols[i]] =sourceArrayTarget_i.sum()                   
+        targetArray[tRows[i],tCols[i]] = sourceArrayTarget_i.sum()                   
     del tRows, tCols
            
     # take sum of sourceArrayTarget, set target strength to that...
@@ -732,10 +764,10 @@ def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, 
         print 'target new'
         print targetArray
         
-    sourceArray=sourceArrayNew
+    sourceArray = sourceArrayNew
     del sourceArrayNew
     sourceSum = sourceArray.sum()
-    targetSum=targetArray.sum() 
+    targetSum = targetArray.sum() 
     #xprint 'targetTally',targetTally
     # Note that we now have identical source sums and targetsums
     start_timeClimate = elapsed_time(start_timeClimate) #Fixme: can climate be sped up? Taking up to 1 second with blocksize 25, radius 100           
@@ -747,41 +779,41 @@ def match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray
     # Fixme: need to add a quick search for overall potential for matches within bands
     print 'Starting climate using temperature differential'
     start_timeClimate = time.clock()
-    climateArray= circ(climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
-    sourceArrayNew=npy.zeros(sourceArray.shape,dtype='float64')
+    climateArray = circ(climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+    sourceArrayNew = npy.zeros(sourceArray.shape,dtype = 'float64')
     
     # indices of valid targets
-    tRows, tCols=npy.where(targetArray)
+    tRows, tCols = npy.where(targetArray)
     if len(sourceArray) < 10:
         print 'clim'
         print climateArray
-    targetTally=0
+    targetTally = 0
     for i in range(0,len(tRows)):
-        tTarget=climateArray[tRows[i],tCols[i]] 
-        if tTarget==-9999:
+        tTarget = climateArray[tRows[i],tCols[i]] 
+        if tTarget == -9999:
             targetArray[tRows[i],tCols[i]] = 0
             continue
-        tDiffArray=npy.where(climateArray == -9999, 0, climateArray-tTarget) #target is cooler. # fixme- could save a bit of time by removing where- maybe could just mask outinvalid- or uses nans, or remove -999 values later
+        tDiffArray = npy.where(climateArray == -9999, 0, climateArray-tTarget) #target is cooler. # fixme- could save a bit of time by removing where- maybe could just mask outinvalid- or uses nans, or remove -999 values later
        
         if options['absClim']:
-            tCutoffArray=npy.where((abs(tDiffArray)>=options['tDiff']-options['tWindow']) & (abs(tDiffArray)<=options['tDiff']+options['tWindow']),1,0)
+            tCutoffArray = npy.where((abs(tDiffArray)>= options['tDiff']-options['tWindow']) & (abs(tDiffArray)<= options['tDiff']+options['tWindow']),1,0)
         else:
-            tCutoffArray=npy.where((tDiffArray>=options['tDiff']-options['tWindow']) & (tDiffArray<=options['tDiff']+options['tWindow']),1,0) 
+            tCutoffArray = npy.where((tDiffArray>= options['tDiff']-options['tWindow']) & (tDiffArray<= options['tDiff']+options['tWindow']),1,0) 
         if len(sourceArray) < 10:
             print 'tCutoffArray'
             print tCutoffArray
-        sourceArrayTarget_i=npy.multiply(sourceArray,tCutoffArray)# sources for this target cell
+        sourceArrayTarget_i = npy.multiply(sourceArray,tCutoffArray)# sources for this target cell
         if npy.max(sourceArrayTarget_i)>0:
-            targetTally+=1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
+            targetTally+= 1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
         
         # For climate, may have more or fewer targets. Need to scale sources by ntargs, and targets by nsources
-        sourceArrayNew=sourceArrayNew+sourceArrayTarget_i
+        sourceArrayNew = sourceArrayNew+sourceArrayTarget_i
         
 #?/ not sure how to handle                                        
 #This is where sourcesum and targetsum become the same                    
 # putting in current equal to nsource*ntarg, taking same out. then normalizing to unit current. then mult by nsource*ntarg.
         #taking same out. 
-        targetArray[tRows[i],tCols[i]] =sourceArrayTarget_i.sum()                   
+        targetArray[tRows[i],tCols[i]] = sourceArrayTarget_i.sum()                   
     del tRows, tCols
         
     # take sum of sourceArrayTarget, set target strength to that...
@@ -790,10 +822,10 @@ def match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray
         print sourceArrayNew
         print 'target new'
         print targetArray
-    sourceArray=sourceArrayNew
+    sourceArray = sourceArrayNew
     del sourceArrayNew
     sourceSum = sourceArray.sum()
-    targetSum=targetArray.sum()
+    targetSum = targetArray.sum()
     print 'targetTally',targetTally
     # Note that we now have identical source sums and targetsums
     start_timeClimate = elapsed_time(start_timeClimate) #Fixme: can climate be sped up? Taking up to 1 second with blocksize 25, radius 100           
@@ -818,17 +850,17 @@ def modify_source_strengths_by_distance(sourceArray, subsetCenterRow, subsetCent
                 print distanceFunctionArray
             del dist
         else:
-            distanceFunctionArray = npy.ones(sourceArray.shape,dtype='float64') #FIXME! Need distance function. Right now just doing min and max. 
+            distanceFunctionArray = npy.ones(sourceArray.shape,dtype = 'float64') #FIXME! Need distance function. Right now just doing min and max. 
 
         #Array to modify source array- includes distance function, max and min distances
         if not options['maxDist']:
-            distanceModifierArray=npy.where(subsetDistArray>=options['minDist'],distanceFunctionArray,0)
+            distanceModifierArray = npy.where(subsetDistArray>= options['minDist'],distanceFunctionArray,0)
         elif not options['minDist']:
-            distanceModifierArray=npy.where(subsetDistArray<=options['maxDist'],distanceFunctionArray,0)
+            distanceModifierArray = npy.where(subsetDistArray<= options['maxDist'],distanceFunctionArray,0)
         else:
-            distanceModifierArray=npy.where((subsetDistArray<=options['maxDist']) & (subsetDistArray>=options['minDist']),distanceFunctionArray,0)
+            distanceModifierArray = npy.where((subsetDistArray<= options['maxDist']) & (subsetDistArray>= options['minDist']),distanceFunctionArray,0)
    
-        sourceArrayNew=npy.where(sourceArray>0,npy.multiply(sourceArray,distanceModifierArray),sourceArray)
+        sourceArrayNew = npy.where(sourceArray>0,npy.multiply(sourceArray,distanceModifierArray),sourceArray)
         if len(sourceArray) < 10:
             print 'source, dist, distfn, distmodifier,newsource:'
             print 'sourceArray\n',sourceArray
@@ -846,15 +878,15 @@ def add_random_resistances(inRaster, options):
     if options['addRandomResistances']: 
         fileBase, fileExtension = path.splitext(options['resisRasterBase'])
         resisRasterFA = path.join(options['scratchDir'],'rand_'+fileBase+'.tif')
-        descData=arcpy.Describe(inRaster)
-        extent=descData.Extent
-        cellSize=descData.MeanCellHeight
+        descData = arcpy.Describe(inRaster)
+        extent = descData.Extent
+        cellSize = descData.MeanCellHeight
         seedValue = 1
 
         outRandomRaster = arcpy.sa.CreateRandomRaster(seedValue, cellSize, extent) 
         outResisRaster = arcpy.sa.Plus(outRandomRaster, inRaster) 
         outResisRaster.save(resisRasterFA)
-        inRaster=resisRasterFA #Fixme: can this just be in memory isntead?
+        inRaster = resisRasterFA #Fixme: can this just be in memory isntead?
     return inRaster
     
 def quantilize(raster):
@@ -863,15 +895,15 @@ def quantilize(raster):
             inArray = arcpy.RasterToNumPyArray(raster,"#","#","#",-9999)
             interval = 100.0/options['numQuantiles']
             breakSequence = seq(interval, 100-interval, interval)
-            quantileArray = npy.zeros_like(inArray, dtype='int32')        
+            quantileArray = npy.zeros_like(inArray, dtype = 'int32')        
             quantileArray = npy.where(inArray > 0,options['numQuantiles'],quantileArray)
                        
             inVector = inArray.flatten()
-            ind=npy.where(inVector > 0) 
+            ind = npy.where(inVector > 0) 
             inVector = inVector[ind] #Eliminate nodata and zeros
 
             # quantilize                      
-            if len(inVector)==0:
+            if len(inVector) == 0:
                 print 'Current array is all zero. No results to process.'
                 return
             print '\nPartitioning ' + str(len(inVector)) + ' non-zero values into ' + str(options['numQuantiles']) + ' quantiles.'
@@ -888,12 +920,12 @@ def quantilize(raster):
             quantileArray = npy.where(inArray == 0,0,quantileArray)
             del inArray 
             
-            descData=arcpy.Describe(raster)
-            cellSize=descData.meanCellHeight
-            extent=descData.Extent
-            spatialReference=descData.spatialReference
+            descData = arcpy.Describe(raster)
+            cellSize = descData.meanCellHeight
+            extent = descData.Extent
+            spatialReference = descData.spatialReference
             
-            pnt=arcpy.Point(extent.XMin,extent.YMin)
+            pnt = arcpy.Point(extent.XMin,extent.YMin)
             quantileRaster = arcpy.NumPyArrayToRaster(quantileArray,pnt,
                                                  cellSize,cellSize,-9999)
             arcpy.DefineProjection_management(quantileRaster,spatialReference)
@@ -907,7 +939,7 @@ def quantilize(raster):
       
 
         
-def seq(start, stop, step=1):
+def seq(start, stop, step = 1):
     n = int(round((stop - start)/float(step)))
     if n > 1:
         return([start + step*i for i in range(n+1)])
@@ -940,7 +972,7 @@ def write_final_maps(options,cumCurrentRaster, cumVdiffRaster,cumFlowRaster,cumS
     print 'Creating final output maps'  
     quantCurrentRaster = quantVdiffRaster = quantFlowRaster = None
     if options['quantilizeMaps']:
-        quantCurrentRaster  = quantilize(cumCurrentRaster)
+        quantCurrentRaster = quantilize(cumCurrentRaster)
         # quantVdiffRaster = quantilize(cumVdiffRaster) 
         # quantFlowRaster = quantilize(cumFlowRaster)
 
@@ -964,11 +996,10 @@ def write_final_maps(options,cumCurrentRaster, cumVdiffRaster,cumFlowRaster,cumS
             outRasterString = sumFile
         else:
             outRasterString = outRasterString + '; ' + sumFile
-        cumFlowRaster3 = arcpy.sa.Con(cumFlowRaster > 0,cumFlowRaster)#(arcpy.Raster(cumFlowRaster))
+        cumFlowRaster3 = arcpy.sa.Con(cumFlowRaster > 0,arcpy.sa.Int(cumFlowRaster))#(arcpy.Raster(cumFlowRaster))
         print 'Writing:\n',sumFile
         cumFlowRaster3.save(sumFile)
         delete_data(options['prevFlowFile'])
-        print 'tried to delete',options['prevFlowFile']
         if quantFlowRaster is not None:
             sumFile = path.join(options['outputDir'], 'flow_PCT_' + options['outputFileText']+'.tif')
             outRasterString = outRasterString + '; ' + sumFile
@@ -1044,8 +1075,8 @@ def clean_up(options):
     print 'Cleaning up...'
     # arcpy.RefreshCatalog(options['outputDir'])
     # arcpy.RefreshCatalog(options['scratchDir'])
-    # arcpy.env.Workspace='c:\\temp'
-    # arcpy.env.scratchWorkspace='c:\\temp'
+    # arcpy.env.Workspace = 'c:\\temp'
+    # arcpy.env.scratchWorkspace = 'c:\\temp'
     try:
         if os.path.exists(options['scratchDir']):
             shutil.rmtree(dir)
@@ -1064,11 +1095,14 @@ def clean_up(options):
             pass
 def set_options_and_dirs(options):
     """derives output base filename by combining input options. Also handles filenames for tiling. Checks and corrects options    """    
-    
+
+    if options['limitCalcsByCWD'] and not options['calcFA']:
+        print 'Error: cannot limit calculations by CWD unless calcFA is set to True.'
+        exit(0)    
     if not options['calcCurrent']:
-        options['calcVoltages']=False
+        options['calcVoltages'] = False
     if not options['useClimate']:
-        options['saveSourceAndTargetCounts']=False
+        options['saveSourceAndTargetCounts'] = False
     if not options['calcCurrent'] and not options['calcFA']:
         print 'Error: must either calculate current or flow accumulation. Both are set to False.'
         exit(0)
@@ -1078,31 +1112,31 @@ def set_options_and_dirs(options):
     options['projectDirBase'] = 'scratch'+options['outputDirBase']
     options['compress'] = False
     
-    if tile >=0: 
-        options['outputDirBase']=options['outputDirBase']+str(tile)
-        options['projectDirBase']=options['projectDirBase']+str(tile)
-        fileBase,ext=os.path.splitext(options['resisRasterBase'])
-        options['resisRasterBase']=fileBase+str(tile)+ext
+    if tile >= 0: 
+        options['outputDirBase'] = options['outputDirBase']+str(tile)
+        options['projectDirBase'] = options['projectDirBase']+str(tile)
+        fileBase,ext = os.path.splitext(options['resisRasterBase'])
+        options['resisRasterBase'] = fileBase+str(tile)+ext
         if options['useClimate']:
             if not options['matchClimatePCs']:
-                fileBase,ext=os.path.splitext(options['climateRasterBase'])
-                options['climateRasterBase']=fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['climateRasterBase'])
+                options['climateRasterBase'] = fileBase+str(tile)+ext
             else:
-                fileBase,ext=os.path.splitext(options['t1PC1RasterBase'])
-                options['t1PC1RasterBase']=fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['t1PC1RasterBase'])
+                options['t1PC1RasterBase'] = fileBase+str(tile)+ext
         
-                fileBase,ext=os.path.splitext(options['t2PC1RasterBase'])
-                options['t2PC1RasterBase']=fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['t2PC1RasterBase'])
+                options['t2PC1RasterBase'] = fileBase+str(tile)+ext
 
-                fileBase,ext=os.path.splitext(options['t1PC2RasterBase'])
-                options['t1PC2RasterBase']=fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['t1PC2RasterBase'])
+                options['t1PC2RasterBase'] = fileBase+str(tile)+ext
 
-                fileBase,ext=os.path.splitext(options['t2PC2RasterBase'])
-                options['t2PC2RasterBase']=fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['t2PC2RasterBase'])
+                options['t2PC2RasterBase'] = fileBase+str(tile)+ext
                 
         if options['useSourceRaster']:
-            fileBase,ext=os.path.splitext(options['sourceRasterBase'])    
-            options['sourceRasterBase']=fileBase+str(tile)+ext
+            fileBase,ext = os.path.splitext(options['sourceRasterBase'])    
+            options['sourceRasterBase'] = fileBase+str(tile)+ext
             
     if options['startBand'] is None: options['startBand'] = 0 
     if options['startStripe'] is None: options['startStripe'] = 0
@@ -1122,110 +1156,118 @@ def set_options_and_dirs(options):
     resisRasText, fileExtension = os.path.splitext(options['resisRasterBase'])
     if not options['useSourceRaster']:
         if len(resisRasText)>25:
-            resisRasText=resisRasText[0:24]+'x'                    
+            resisRasText = resisRasText[0:24]+'x'                    
     elif len(resisRasText)>15:
-        resisRasText=resisRasText[0:14]+'x'                    
+        resisRasText = resisRasText[0:14]+'x'                    
 
     if options['squareResistances']:
-        squareText='_sq'
+        squareText = '_sq'
     else:    
-        squareText=''
+        squareText = ''
     radiusText = '_r'+str(options['radius'])
     if options['useSourceRaster']:
-        fileBase,ext=os.path.splitext(options['sourceRasterBase'])
+        fileBase,ext = os.path.splitext(options['sourceRasterBase'])
         srcText = 'srcRas_'+ fileBase + '_'
     else:
         srcText = ''
+
+    if options['limitCalcsByCWD']:
+        limText = '_lim' + str(options['cwdLimit'])
+    else:
+        limText = ''
     if options['negTargets']:
         negTargText = 'negTarg'
     else:
         negTargText = ''
 
     if options['fadeIn']:
-        fadeInText='_fad'+str(int(options['fadeInDist']))
+        fadeInText = '_f'+str(int(options['fadeInDist']))
     else:
-        fadeInText=''
+        fadeInText = ''
 
     if options['startBand'] > 0:
         startBandText = '_SB'+str(options['startBand'])
     else:
-        startBandText=''
+        startBandText = ''
     if options['endBand'] > 0:
         endBandText = '_EB'+str(options['endBand'])
     else:
-        endBandText=''
+        endBandText = ''
     if options['startStripe'] > 0:
         startStripeText = '_SS'+str(options['startStripe'])
     else:
-        startStripeText=''
+        startStripeText = ''
     if options['endStripe'] > 0:
         endStripeText = '_ES'+str(options['endStripe'])
     else:
-        endStripeText=''
+        endStripeText = ''
         
-    distFunctionText=''
+    distFunctionText = ''
     if options['useDistanceFunction'] and (options['maxDist'] or options['minDist'] or options['distEq'] is not None):
         if options['minDist']:
-            distFunctionText= '_minDist'+str(options['minDist']) 
+            distFunctionText = '_minDist'+str(options['minDist']) 
         if options['maxDist']:
-            distFunctionText= distFunctionText + '_maxDist'+str(options['maxDist']) 
+            distFunctionText = distFunctionText + '_maxDist'+str(options['maxDist']) 
         if options['distEq'] is not None:
-            distFunctionText= distFunctionText + '_distFn'
+            distFunctionText = distFunctionText + '_distFn'
     if options['weightTargOnly']:
-        weightText='_targOnly'
+        weightText = '_targOnly'
     else:
-        weightText=''
+        weightText = ''
     if options['centerGround']:
-        centerText='cg'
+        centerText = 'cg'
     else:
-        centerText=''
+        centerText = ''
     
-
-    if options['noWeight']:
-        noWeightText='noWeight'
+    if options['calcMaxCur']:
+        maxText = '_max'
     else:
-        noWeightText=''
+        maxText = ''
+    if options['noWeight']:
+        noWeightText = 'noWeight'
+    else:
+        noWeightText = ''
 
     if options['useClimate']:
         if not options['matchClimatePCs']:
 
-            fileBase,ext=os.path.splitext(options['climateRasterBase'])
+            fileBase,ext = os.path.splitext(options['climateRasterBase'])
             if len(fileBase)>15:
-                fileBase=fileBase[0:14]+'x'
-            climText='clim_tc_'+str(options['tDiff']).replace('.','')+'_'+fileBase
+                fileBase = fileBase[0:14]+'x'
+            climText = 'clim_tc_'+str(options['tDiff']).replace('.','')+'_'+fileBase
             if options['absClim']:
-                climText=climText+'_abs'
+                climText = climText+'_abs'
         else:
-            climText='_clim_PCs_Cut'+str(options['PCWindow']).replace('.','')
+            climText = '_clim_PCs_Cut'+str(options['PCWindow']).replace('.','')
     else:
-        climText=''
+        climText = ''
     if options['calcNull']:
-        nullText='NULL_'
+        nullText = 'NULL_'
     else:
-        nullText=''
+        nullText = ''
 
     if not options['useSourceRaster']:
         if options['sourceInverseR']:
             cutoffText = '_srcInvR'
         else:    
-            cutoffText ='_rc'+str(options['rCutoff'])
+            cutoffText = '_rc'+str(options['rCutoff'])
     else:
         cutoffText = ''
-    options['outputFileText'] = nullText+resisRasText + squareText + '_'+srcText+climText+radiusText+'bl'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+startBandText+endBandText+startStripeText+endStripeText+negTargText+fadeInText
-    options['prevFlowFile']=None
-    options['prevCumCurrentFile']=None
+    options['outputFileText'] = nullText+resisRasText + squareText + limText + '_' + srcText+climText+radiusText+'b'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+maxText+startBandText+endBandText+startStripeText+endStripeText+negTargText+fadeInText
+    options['prevFlowFile'] = None
+    options['prevCumCurrentFile'] = None
     options['prevVdiffFile'] = None
 
-    print 'resisRasterBase=',options['resisRasterBase']
-    print 'Radius=',options['radius']
-    print 'BlockSize=',options['blockSize']
+    print 'resisRasterBase = ',options['resisRasterBase']
+    print 'Radius = ',options['radius']
+    print 'BlockSize = ',options['blockSize']
     if not options['useSourceRaster']:
         if options['sourceInverseR']:
             print 'Using inverse of resistances for sources'
         else:
-            print'rCutoff=',options['rCutoff']
+            print'rCutoff = ',options['rCutoff']
     else:
-        print 'sourceRasterBase=',options['sourceRasterBase']
+        print 'sourceRasterBase = ',options['sourceRasterBase']
     print'startBand',options['startBand']
     print'endBand',options['endBand']
     print'startStripe',options['startStripe']
@@ -1233,13 +1275,13 @@ def set_options_and_dirs(options):
     if options['calcNull']:
         print'calcNull',options['calcNull']
     if options['fadeIn']:
-        print 'fadeIn Distance',options['fadeInDist']
+        print 'FadeIn Distance',options['fadeInDist']
     if options['useDistanceFunction']:
         print 'minDist',options['minDist'] 
         print 'maxDist',options['maxDist'] 
 
-    options['outputDir']=os.path.join(options['projectDir'],options['outputDirBase'])
-    options['scratchDir']=os.path.join(options['projectDir'],options['projectDirBase'])
+    options['outputDir'] = os.path.join(options['projectDir'],options['outputDirBase'])
+    options['scratchDir'] = os.path.join(options['projectDir'],options['projectDirBase'])
     print 'project Dir',options['projectDir']
     print 'output Dir',options['outputDirBase']
     delete_dir(options['scratchDir'])
@@ -1254,7 +1296,7 @@ def set_options_and_dirs(options):
 
 def copy_this_file(options):
     # Save a copy of this file in output directory
-    # destFile=os.path.join(options['outputDir'],'omniscape_'+options['outputFileText']+'.py')
+    # destFile = os.path.join(options['outputDir'],'omniscape_'+options['outputFileText']+'.py')
     ft = tuple(time.localtime())
     timeNow = time.ctime()
     fileName = ('%s_%s_%s_%s%s_%s' % (ft[0], ft[1], ft[2], ft[3], ft[4], 'omniscape_'+options['outputFileText']+'.py'))# os.path.basename(sys.argv[0])))
@@ -1265,13 +1307,25 @@ def copy_this_file(options):
 def get_max_vdiff(voltMap,circleResisArray,csOptions):
     voltMap_l, voltMap_r = get_horiz_neighbors(voltMap)
     voltMap_u, voltMap_d = get_vert_neighbors(voltMap)
-    print 'voltMap_l'
-    print voltMap_l
-    if options['adjustVoltages']: #fixme: not completed. Aim is to 
+    # print 'voltMap_l'
+    # print voltMap_l
+    if options['adjustVoltages']: 
+        # fixme: not completed. Aim is to 
         # see how much improvement is possible if r reduced to 1.
-        # vdiff * (r-1)/r... if r=1, no improvement possible. if r=2, half of voltage could be reduced. etc.
+        # vdiff * (r-1)/r... if r = 1, no improvement possible. if r = 2, half of voltage could be reduced. etc.
         # need r's, will include r from 3 pixels. but try to calc how much v would drop if that one pixel were restored.
         # HOW MUCH WOULD V DROP ACROSS PIXEL IF R>1
+        
+        # But know current, so v = ir to get r?
+        # 10 A going thru cell.
+        # volt = 50
+        # R = V/I
+        # assumed R = 5
+        
+        
+        
+        # figure out where max vdiff is
+        # figure out resistance across that
         
         resis_l, resis_r = get_horiz_neighbors(circleResisArray)
         resis_u, resis_d = get_vert_neighbors(circleResisArray)
@@ -1309,8 +1363,8 @@ def get_horiz_neighbors(map):
     zeromap = npy.empty(map.shape,dtype = 'float64') 
 
     zeromap[:] = npy.NAN
-    map_l  = zeromap.copy()
-    map_r  = zeromap.copy()
+    map_l = zeromap.copy()
+    map_r = zeromap.copy()
     
     map_l[:,1:n] = map[:, 0:(n-1)]
     map_r[:,0:(n-1)] = map[:, 1:n]
@@ -1320,8 +1374,8 @@ def get_vert_neighbors(map):
     m = map.shape[0]
     n = map.shape[1]
     zeromap = npy.zeros(map.shape,dtype = 'float64') 
-    map_u  = zeromap.copy()
-    map_d  = zeromap.copy()
+    map_u = zeromap.copy()
+    map_d = zeromap.copy()
 
     map_u[1:m, :] = map[0:(m-1), :]
     map_d[0:(m-1) , :] = map[1:m , :]
@@ -1332,9 +1386,9 @@ def get_diag1_neighbors(map):
     m = map.shape[0]
     n = map.shape[1]   
     zeromap = npy.zeros(map.shape,dtype = 'float64') 
-    map_ul  = zeromap.copy()
+    map_ul = zeromap.copy()
     map_ul[1:m,1:n] = map[0:m-1, 0:n-1]
-    map_dr  = zeromap.copy()
+    map_dr = zeromap.copy()
     map_dr[0:m-1, 0:n-1  ] = map[1:m , 1:n ]
     return map_ul, map_dr
 
@@ -1343,46 +1397,26 @@ def get_diag2_neighbors(map):
     m = map.shape[0]
     n = map.shape[1]
     zeromap = npy.zeros(map.shape,dtype = 'float64') 
-    map_ur  = zeromap.copy()
+    map_ur = zeromap.copy()
     map_ur[1:m,0:n-1] = map[0:m-1, 1:n  ]
-    map_dl  = zeromap.copy()
+    map_dl = zeromap.copy()
     map_dl[0:m-1, 1:n  ] = map[1:m  , 0:n-1]
     return map_ur, map_dl
 
 # @profile
-def band(inRaster,header,centerRow, options):
-
-    # descData=arcpy.Describe(inRaster)
-    # print 'rows, cols' 
-    # print descData.height
-    # print descData.width
-#FIXME put bounds on bandrows- minrow=0, maxrow=nrows...
-    # bandRows=min(options['radius']*2+1,options['radius']+centerRow+1,header['nrows'])
-   
-    bandRows=1 + min(options['radius'],centerRow) + min(header['nrows'] - (centerRow+1), options['radius'])
-    # print 'bandrows=',bandRows
-    
-    yMin= max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
+def band(inRaster,header,centerRow, options): 
+    bandRows = 1 + min(options['radius'],centerRow) + min(header['nrows'] - (centerRow+1), options['radius'])
+    yMin = max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
     LLC = arcpy.Point(header['xllcorner'],yMin)
-    # print 'xll, y'
-    # print header['xllcorner'],yMin
-    # blar
-    # arcpy.Raster(inRaster).save('c:\\temp\\bandInRas')
-    bandArray = arcpy.RasterToNumPyArray(inRaster,LLC,"#",bandRows,-9999)
-    # newRaster = arcpy.NumPyArrayToRaster(bandArray,LLC,
-                                         # header['cellsize'],header['cellsize'],-9999)
-    # newRaster.save('c:\\temp\\bandarray')
+    bandArray = arcpy.RasterToNumPyArray(inRaster,LLC,"#",bandRows,-9999)  
     if bandArray.shape[1] > header['ncols']: #FIXME: temp fix because random raster yields bands that are 1 too long for some reason      
         print'Band array is too long'
         print 'ncols',header['ncols']
         print 'shape',bandArray.shape[1]
         print 'last col min,max', npy.min(bandArray[:,header['ncols']]), npy.max(bandArray[:,header['ncols']])
         print 'Col 0 min,max', npy.min(bandArray[:,0]), npy.max(bandArray[:,0])
-        bandArray = bandArray[:,1:header['ncols']]
-    # print 'shape',bandArray.shape
-    # print 'band 3'
-    # print bandArray[bandArray.shape[0]-1:,3]
-    # print 'done'
+        # bandArray = bandArray[:,1:header['ncols']] #CHANGED BHM 12/15/15
+        bandArray = bandArray[:,1:bandArray.shape[1]] #CHANGED BHM 12/15/15  
     return bandArray
 
 @profile
@@ -1395,16 +1429,19 @@ def addData(cumCurrentArray, currentArray, centerRow, centerCol, options):
     # fixme: check if next line needs mincol added like in maxrow line
     maxCol = min(cumCurrentArray.shape[1]-1, centerCol+options['radius'])
 
-    fullCurrentArray = npy.zeros(cumCurrentArray.shape,dtype='float64')
-    fullCurrentArray[minRow:maxRow+1,minCol:maxCol+1]=currentArray
-    cumCurrentArray += fullCurrentArray
+    fullCurrentArray = npy.zeros(cumCurrentArray.shape,dtype = 'float64')
+    fullCurrentArray[minRow:maxRow+1,minCol:maxCol+1] = currentArray
+    if options['calcMaxCur']:
+        cumCurrentArray = npy.where(cumCurrentArray < fullCurrentArray, fullCurrentArray, cumCurrentArray)
+    else:
+        cumCurrentArray += fullCurrentArray
     return cumCurrentArray
 
 @profile
 def addData_arcpy(cumCurrentRaster, currentRaster):
-    descData=arcpy.Describe(cumCurrentRaster)
-    arcpy.env.extent=descData.Extent    
-    arcpy.env.extent="MAXOF"
+    descData = arcpy.Describe(cumCurrentRaster)
+    arcpy.env.extent = descData.Extent    
+    arcpy.env.extent = "MAXOF"
     #fixme: put statements below in single nested con
     newCumCurrentRaster = arcpy.sa.Con(arcpy.sa.IsNull(currentRaster),cumCurrentRaster,arcpy.sa.Plus(currentRaster,cumCurrentRaster))
     newCumCurrentRaster2 = arcpy.sa.Con(arcpy.sa.IsNull(newCumCurrentRaster),currentRaster,newCumCurrentRaster)
@@ -1419,7 +1456,7 @@ def circ(array, rowArray, colArray, centerRow, centerCol, options):
         endCol = min(centerCol + options['radius'],array.shape[1]-1)
         colArraySmall = (colArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
         rowArraySmall = (rowArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
-        arraySmall=array[startRow:endRow+1,startCol:endCol+1]
+        arraySmall = array[startRow:endRow+1,startCol:endCol+1]
         
         #xprint 'arraySmall',arraySmall
         #xprint'colsmall',colArraySmall
@@ -1433,26 +1470,26 @@ def circ(array, rowArray, colArray, centerRow, centerCol, options):
         #xprint'c0',colArraySmall
 
         # # Code below could be used if processing large radii creates memory problems
-        # rowArraySmall-=centerRow
-        # colArraySmall-=centerCol
-        # rowArraySmall*=rowArraySmall
-        # colArraySmall*=colArraySmall
-        # colArraySmall+=rowArraySmall       
+        # rowArraySmall-= centerRow
+        # colArraySmall-= centerCol
+        # rowArraySmall* = rowArraySmall
+        # colArraySmall* = colArraySmall
+        # colArraySmall+= rowArraySmall       
         # npy.sqrt(colArraySmall, colArraySmall) # take sqrt in place
         #xprint'sqrt'
         # now = time.clock()
         distArray = npy.sqrt(npy.multiply((rowArraySmall - centerRow), (rowArraySmall- centerRow)) + npy.multiply((colArraySmall-centerCol), (colArraySmall-centerCol))) #causes memory error
-        # now=elapsed_time(now)
+        # now = elapsed_time(now)
         del rowArraySmall,colArraySmall
         #xprint 'dist',distArray
         
         
-        arrayMasked = npy.where(distArray <=options['radius'], arraySmall, -9999) #fixme do nans here
+        arrayMasked = npy.where(distArray <= options['radius'], arraySmall, -9999) #fixme do nans here
 
         
 
         gc.collect()
-        # st0=elapsed_time(st0)
+        # st0 = elapsed_time(st0)
         # distArray = npy.sqrt(npy.multiply((rowArray - centerRow), (rowArray- centerRow)) + npy.multiply((colArray-centerCol), (colArray-centerCol))) #causes memory error
         #xprint arrayMasked
         return arrayMasked
@@ -1522,25 +1559,25 @@ def ascii_grid_reader(filename, nodata,data_type):
         """Reads rasters saved as ASCII grids or numpy arrays into Circuitscape."""
        
         if nodata == False:
-            pmap = npy.loadtxt(filename, skiprows=5, dtype=data_type)
+            pmap = npy.loadtxt(filename, skiprows = 5, dtype = data_type)
         else:
-            pmap = npy.loadtxt(filename, skiprows=6, dtype=data_type)
-            pmap = npy.where(pmap==nodata, -9999, pmap)
+            pmap = npy.loadtxt(filename, skiprows = 6, dtype = data_type)
+            pmap = npy.where(pmap == nodata, -9999, pmap)
 
         return pmap
 
 
 def get_header(filename):
     header = {}
-    descData=arcpy.Describe(filename)
-    cellsize=descData.meanCellHeight
-    extent=descData.Extent
+    descData = arcpy.Describe(filename)
+    cellsize = descData.meanCellHeight
+    extent = descData.Extent
     xllcorner = extent.XMin
     yllcorner = extent.YMin
     yulcorner = extent.YMax
     xlrcorner = extent.XMax
-    nrows=int((yulcorner-yllcorner)/cellsize)
-    ncols=int((xlrcorner-xllcorner)/cellsize)
+    nrows = int((yulcorner-yllcorner)/cellsize)
+    ncols = int((xlrcorner-xllcorner)/cellsize)
     header = {}
     header['ncols'] = ncols
     header['nrows'] = nrows
@@ -1573,14 +1610,14 @@ def ascii_grid_writer(file_name, data, header, options):
 @profile    
 def export_ras_to_npy(raster,npyFile):
     
-    descData=arcpy.Describe(raster)
-    cellSize=descData.meanCellHeight
-    extent=descData.Extent
-    spatialReference=descData.spatialReference
+    descData = arcpy.Describe(raster)
+    cellSize = descData.meanCellHeight
+    extent = descData.Extent
+    spatialReference = descData.spatialReference
     
-    pnt=arcpy.Point(extent.XMin,extent.YMin)
+    pnt = arcpy.Point(extent.XMin,extent.YMin)
     outData = arcpy.RasterToNumPyArray(raster,"#","#","#",-9999)
-    #outData = npy.where(outData==noDataVal,-9999,outData)
+    #outData = npy.where(outData == noDataVal,-9999,outData)
     if npy.array_equiv(outData, outData.astype('int32')):
         outData = outData.astype('int32')
     npy.save(npyFile, outData)
@@ -1597,14 +1634,14 @@ def export_ras_to_npy(raster,npyFile):
 
 @profile
 def import_npy_to_ras(npyFile,baseRaster,outRasterPath):
-    npyArray = npy.load(npyFile, mmap_mode=None)
-    npyArray=npyArray.astype('float32')
-    descData=arcpy.Describe(baseRaster)
-    cellSize=descData.meanCellHeight
-    extent=descData.Extent
-    spatialReference=descData.spatialReference
+    npyArray = npy.load(npyFile, mmap_mode = None)
+    npyArray = npyArray.astype('float32')
+    descData = arcpy.Describe(baseRaster)
+    cellSize = descData.meanCellHeight
+    extent = descData.Extent
+    spatialReference = descData.spatialReference
     
-    pnt=arcpy.Point(extent.XMin,extent.YMin)
+    pnt = arcpy.Point(extent.XMin,extent.YMin)
     newRaster = arcpy.NumPyArrayToRaster(npyArray,pnt,
                                          cellSize,cellSize,-9999)
     if outRasterPath is not None:
@@ -1616,11 +1653,11 @@ def import_npy_to_ras(npyFile,baseRaster,outRasterPath):
 
 def write_header(raster,numpyArray,numpyFile):
     
-    ncols=numpyArray.shape[1]
-    nrows=numpyArray.shape[0]
-    descData=arcpy.Describe(raster)
-    cellSize=descData.meanCellHeight
-    extent=descData.Extent
+    ncols = numpyArray.shape[1]
+    nrows = numpyArray.shape[0]
+    descData = arcpy.Describe(raster)
+    cellSize = descData.meanCellHeight
+    extent = descData.Extent
     xllcorner = extent.XMin
     yllcorner = extent.YMin
     nodata = -9999
@@ -1659,48 +1696,48 @@ def setCircuitscapeOptions(resisAsciiFile,sourceAsciiFile,groundAsciiFile,output
     """
     csOptions = {}
 
-    csOptions['data_type']='raster'
-    csOptions['version']='unknown'
-    csOptions['low_memory_mode']=False
-    csOptions['scenario']='advanced'
-    csOptions['habitat_file']='(Browse for a habitat map file)'
-    csOptions['habitat_map_is_resistances']=True
-    csOptions['point_file']=('(Browse for file with '
+    csOptions['data_type'] = 'raster'
+    csOptions['version'] = 'unknown'
+    csOptions['low_memory_mode'] = False
+    csOptions['scenario'] = 'advanced'
+    csOptions['habitat_file'] = '(Browse for a habitat map file)'
+    csOptions['habitat_map_is_resistances'] = True
+    csOptions['point_file'] = ('(Browse for file with '
                           'locations of focal points or areas)')
-    csOptions['point_file_contains_polygons']=True
-    csOptions['connect_four_neighbors_only']=False
-    csOptions['connect_using_avg_resistances']=True
-    csOptions['use_polygons']=False
-    csOptions['polygon_file']='(Browse for a short-circuit region file)'
-    csOptions['source_file']='(Browse for a current source file)'
-    csOptions['ground_file']='(Browse for a ground point file)'
-    csOptions['ground_file_is_resistances']=True
-    csOptions['use_unit_currents']=False
-    csOptions['use_direct_grounds']=False
-    csOptions['remove_src_or_gnd']='rmvsrc'
-    csOptions['output_file']='(Choose a base name for output files)'
-    csOptions['write_cur_maps']=True
-    csOptions['write_cum_cur_map_only']=True
-    csOptions['log_transform_maps']=False
-    csOptions['write_volt_maps']=False
-    csOptions['solver']='cg+amg'
-    csOptions['compress_grids']=False
-    csOptions['print_timings']=False
-    csOptions['use_mask']=False
-    csOptions['mask_file']='None'
-    csOptions['use_included_pairs']=False
-    csOptions['included_pairs_file']='None'
-    csOptions['use_variable_source_strengths']=False
-    csOptions['variable_source_file']='None'
-    csOptions['write_max_cur_maps']=False
-    csOptions['set_focal_node_currents_to_zero']=True
-    csOptions['print_timings']=False
+    csOptions['point_file_contains_polygons'] = True
+    csOptions['connect_four_neighbors_only'] = False
+    csOptions['connect_using_avg_resistances'] = True
+    csOptions['use_polygons'] = False
+    csOptions['polygon_file'] = '(Browse for a short-circuit region file)'
+    csOptions['source_file'] = '(Browse for a current source file)'
+    csOptions['ground_file'] = '(Browse for a ground point file)'
+    csOptions['ground_file_is_resistances'] = True
+    csOptions['use_unit_currents'] = False
+    csOptions['use_direct_grounds'] = False
+    csOptions['remove_src_or_gnd'] = 'rmvsrc'
+    csOptions['output_file'] = '(Choose a base name for output files)'
+    csOptions['write_cur_maps'] = True
+    csOptions['write_cum_cur_map_only'] = True
+    csOptions['log_transform_maps'] = False
+    csOptions['write_volt_maps'] = False
+    csOptions['solver'] = 'cg+amg'
+    csOptions['compress_grids'] = False
+    csOptions['print_timings'] = False
+    csOptions['use_mask'] = False
+    csOptions['mask_file'] = 'None'
+    csOptions['use_included_pairs'] = False
+    csOptions['included_pairs_file'] = 'None'
+    csOptions['use_variable_source_strengths'] = False
+    csOptions['variable_source_file'] = 'None'
+    csOptions['write_max_cur_maps'] = False
+    csOptions['set_focal_node_currents_to_zero'] = True
+    csOptions['print_timings'] = False
     csOptions['output_file'] = outputFile
        
-    csOptions['remove_src_or_gnd']='rmvsrc'#'keepall'
+    csOptions['remove_src_or_gnd'] = 'rmvsrc'#'keepall'
     csOptions['habitat_file'] = resisAsciiFile
     csOptions['source_file'] = sourceAsciiFile
-    csOptions['ground_file']= groundAsciiFile
+    csOptions['ground_file'] = groundAsciiFile
 
     return csOptions
 
@@ -1710,66 +1747,66 @@ def writeCircuitscapeConfigFile(configFile, csOptions):
     """
     config = ConfigParser.ConfigParser()
 
-    sections={}
-    section='Version'
-    sections['version']=section
+    sections = {}
+    section = 'Version'
+    sections['version'] = section
 
-    section='Connection scheme for raster habitat data'
-    sections['connect_four_neighbors_only']=section
-    sections['connect_using_avg_resistances']=section
+    section = 'Connection scheme for raster habitat data'
+    sections['connect_four_neighbors_only'] = section
+    sections['connect_using_avg_resistances'] = section
 
-    section='Short circuit regions (aka polygons)'
-    sections['use_polygons']=section
-    sections['polygon_file']=section
+    section = 'Short circuit regions (aka polygons)'
+    sections['use_polygons'] = section
+    sections['polygon_file'] = section
 
-    section='Options for advanced mode'
-    sections['source_file']=section
-    sections['ground_file']=section
-    sections['ground_file_is_resistances']=section
-    sections['use_unit_currents']=section
-    sections['use_direct_grounds']=section
-    sections['remove_src_or_gnd']=section
+    section = 'Options for advanced mode'
+    sections['source_file'] = section
+    sections['ground_file'] = section
+    sections['ground_file_is_resistances'] = section
+    sections['use_unit_currents'] = section
+    sections['use_direct_grounds'] = section
+    sections['remove_src_or_gnd'] = section
 
-    section='Calculation options'
-    sections['solver']=section
-    sections['print_timings']=section
-    sections['low_memory_mode']=section
+    section = 'Calculation options'
+    sections['solver'] = section
+    sections['print_timings'] = section
+    sections['low_memory_mode'] = section
 
-    section='Output options'
-    sections['output_file']=section
-    sections['write_cur_maps']=section
-    sections['write_cum_cur_map_only']=section
-    sections['log_transform_maps']=section
-    sections['write_volt_maps']=section
-    sections['compress_grids']=section
-    sections['write_max_cur_maps']=section
-    sections['set_focal_node_currents_to_zero']=section
+    section = 'Output options'
+    sections['output_file'] = section
+    sections['write_cur_maps'] = section
+    sections['write_cum_cur_map_only'] = section
+    sections['log_transform_maps'] = section
+    sections['write_volt_maps'] = section
+    sections['compress_grids'] = section
+    sections['write_max_cur_maps'] = section
+    sections['set_focal_node_currents_to_zero'] = section
 
-    section='Mask file'
-    sections['use_mask']=section
-    sections['mask_file']=section
+    section = 'Mask file'
+    sections['use_mask'] = section
+    sections['mask_file'] = section
 
-    section='Options for pairwise and one-to-all and all-to-one modes'
-    sections['use_included_pairs']=section
-    sections['included_pairs_file']=section
-    sections['point_file']=section
-    sections['point_file_contains_polygons']=section
+    section = 'Options for pairwise and one-to-all and all-to-one modes'
+    sections['use_included_pairs'] = section
+    sections['included_pairs_file'] = section
+    sections['point_file'] = section
+    sections['point_file_contains_polygons'] = section
 
-    section='Options for one-to-all and all-to-one modes'
-    sections['use_variable_source_strengths']=section
-    sections['variable_source_file']=section
+    section = 'Options for one-to-all and all-to-one modes'
+    sections['use_variable_source_strengths'] = section
+    sections['variable_source_file'] = section
 
-    section='Habitat raster or graph'
-    sections['habitat_file']=section
-    sections['habitat_map_is_resistances']=section
+    section = 'Habitat raster or graph'
+    sections['habitat_file'] = section
+    sections['habitat_map_is_resistances'] = section
 
-    section="Circuitscape mode"
-    sections['scenario']=section
-    sections['data_type']=section
+    section = "Circuitscape mode"
+    sections['scenario'] = section
+    sections['data_type'] = section
 
-    if csOptions['ground_file_is_resistances']=='not entered':
+    if csOptions['ground_file_is_resistances'] == 'not entered':
         csOptions['ground_file_is_resistances'] = False
-    if csOptions['point_file_contains_polygons']=='not entered':
+    if csOptions['point_file_contains_polygons'] == 'not entered':
         csOptions['point_file_contains_polygons'] = False
 
     for csOption in sections:
@@ -1791,8 +1828,8 @@ def call_circuitscape(CSPATH, outConfigFile):
     failFlag = False
     print('Calling Circuitscape:')
     proc = subprocess.Popen([CSPATH, outConfigFile],
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                           shell=True)
+                           stdout = subprocess.PIPE, stderr = subprocess.STDOUT, 
+                           shell = True)
     while proc.poll() is None:
         output = proc.stdout.readline()
         
@@ -1812,7 +1849,7 @@ def call_circuitscape(CSPATH, outConfigFile):
             print(output.replace("\r\n",""))                
     
     # Catch any output lost if process closes too quickly
-    output=proc.communicate()[0]
+    output = proc.communicate()[0]
     for line in output.split('\r\n'):
         if 'Traceback' in line:
             print("\nCircuitscape failed.")
@@ -1838,9 +1875,9 @@ def create_log_file(options):
     fileName = 'omni_LOG_'+options['outputFileText']+'.txt'
     filePath = os.path.join(options['outputDir'],fileName)
     try:
-        logFile=open(filePath,'a')
+        logFile = open(filePath,'a')
     except:
-        logFile=open(filePath,'w')
+        logFile = open(filePath,'w')
     if inParameters is not None:
         logFile.write('*'*70 + '\n')
         logFile.write('Omniscape log file: %s \n\n' % (toolName))
@@ -1852,9 +1889,9 @@ def create_log_file(options):
 
 def write_log(string):
     try:
-        logFile=open(options['logFilePath'],'a')
+        logFile = open(options['logFilePath'],'a')
     except:
-        logFile=open(options['logFilePath'],'w')
+        logFile = open(options['logFilePath'],'w')
     try:
         #Sometimes int objects returned for arc failures so need str below
         logFile.write(str(string) + '\n')
@@ -1935,7 +1972,7 @@ print 'Done'
   # File "D:\GIS_DATA\NACR\McRae\circuitscapeBraidedThruway\circleFlowBand.py", line 580, in circleFlowBand
     # grid = npy.indices((bandArray.shape))
   # File "D:\Python27\ArcGIS10.2\lib\site-packages\numpy\core\numeric.py", line 1602, in indices
-    # res = empty((N,)+dimensions, dtype=dtype)
+    # res = empty((N,)+dimensions, dtype = dtype)
 # MemoryError
 
 # Tiling-manual for now
@@ -1949,8 +1986,8 @@ print 'Done'
 #xprint aa
 # aaa = np.where(aa>N/2,1,0)
 #xprint aaa
-# sum = np.sum(aaa, axis=0)
-# ind = np.argmax(sum==1)
+# sum = np.sum(aaa, axis = 0)
+# ind = np.argmax(sum == 1)
 #xprint 'looking for '+str(N/2)
 #xprint ind
 # blarg
@@ -1958,8 +1995,8 @@ print 'Done'
 
 
 # # SOLVE TIMES
-    # #r=300:15
-    #r=150: 2-5
+    # #r = 300:15
+    #r = 150: 2-5
 # source strength ppn to tdiff?
 # Next- redo 10km with 1C change, then 50km
 # climate code too slow when iterating through targets
@@ -1976,7 +2013,7 @@ print 'Done'
 
 # Speed up search for non-nodata stripes by finding 1st instance in band?
 
-# Next: climate function- if 0 < deltaT < 5, i = deltaT. If 5 < deltaT < 10, i=10-deltaT
+# Next: climate function- if 0 < deltaT < 5, i = deltaT. If 5 < deltaT < 10, i = 10-deltaT
 # for climate, scaling sources by # targets and v-v. Just multiply current map by targetsum, i.e. use target only?
 # budget climate dispersers based on distance from source?
 
@@ -2001,14 +2038,14 @@ print 'Done'
 
 # get sources, targs
 # if options['useClimate']
-    # sourceArrayNew=zeros
-    # # srow, scol= where(sourceArray>0)
-    # trows, tcols=where(targetArray>0)
+    # sourceArrayNew = zeros
+    # # srow, scol = where(sourceArray>0)
+    # trows, tcols = where(targetArray>0)
     # for each target point
-        # tDiffArray=temp-tTarget
-        # sourceArrayNew=sourceArrayNew+sourceArray*f(tDiff)
+        # tDiffArray = temp-tTarget
+        # sourceArrayNew = sourceArrayNew+sourceArray*f(tDiff)
             # i ~ tdiff, quality
-            # for now: i=1 if tdiff > 1, otherwise 0
+            # for now: i = 1 if tdiff > 1, otherwise 0
         # each source = mean (f(tdiffs))
 
 # TIME TO DO CLIMATE?
@@ -2022,8 +2059,8 @@ print 'Done'
 # Idea- current injected ~ numtargs.
 # But then mask out target block and put ground in center.
 # vastly increases run time:
-            # rows,cols=npy.where(targetArray > 0)
-            # groundArray=npy.zeros(sourceArray.shape,dtype='int32')
+            # rows,cols = npy.where(targetArray > 0)
+            # groundArray = npy.zeros(sourceArray.shape,dtype = 'int32')
             # groundArray[rows[0],cols[0]] = 100000
 
 # fade in doing trick. test results against much finer run, like 15
@@ -2100,13 +2137,13 @@ print 'Done'
 # # options['resisRasterBase'] = 'ecol_resis3_nodata2_10kbarriers2.asc'
 # options['resisRasterBase'] = 'ecol_resis3_nodata2.asc'
 
-# options['useSourceRaster']=False
+# options['useSourceRaster'] = False
 # options['sourceRasterBase'] = '5x5_src.asc'
 # options['sourceRasterBase'] = 'proof_points39.asc'
 
-# options['useClimate']=False
-# options[tCutoff']=3
-# options['climateRasterBase'] ='5x5Temperature.asc'
+# options['useClimate'] = False
+# options[tCutoff'] = 3
+# options['climateRasterBase'] = '5x5Temperature.asc'
 # options['climateRasterBase'] = 'ecologytemperature.asc'
 
 # options['projectDir'] = 'C:\\Dropbox\\Working\\Circuitscape_BraidedThruway\\CF_PROOF'
@@ -2134,27 +2171,27 @@ print 'Done'
 # options['outputDirBase'] = 'neTest'
 # # options['resisRasterBase'] = 'ny_nlcd_500m.asc'
 # options['resisRasterBase'] = 'resistance.tif'
-# options['useClimate']=True
-# options[tCutoff']=0.1
-# options['climateRasterBase'] ='tmean.tif'
+# options['useClimate'] = True
+# options[tCutoff'] = 0.1
+# options['climateRasterBase'] = 'tmean.tif'
 
 
 # options['projectDir'] = 'D:\\GIS_DATA\\NACR\\McRae\\circuitscapeBraidedThruway\\CF_NE'
 # options['outputDirBase'] = 'tile_test7'
 # # options['resisRasterBase'] = 'ny_nlcd_500m.asc'
 # options['resisRasterBase'] = 'resis_chesapeak2.tif'
-# options['useClimate']=True
-# options[tCutoff']=0.5
-# options['climateRasterBase'] ='tmean_ne_chesapeak.tif'
-# tile=1
+# options['useClimate'] = True
+# options[tCutoff'] = 0.5
+# options['climateRasterBase'] = 'tmean_ne_chesapeak.tif'
+# tile = 1
 # xxxx
 
 
 # options['projectDir'] = 'C:\\dropbox\\Working\\Circuitscape_BraidedThruway\\CF_PROOF'
 # # options['resisRasterBase'] = 'EcologyResistances.asc'
 # options['resisRasterBase'] = '6x9R.asc'
-# options['rCutoff']=1
-# options['useClimate']=False
+# options['rCutoff'] = 1
+# options['useClimate'] = False
 # options['resisRasterBase'] = 'ecol_resis3_nodata2_10kbarriers2.asc'
 # options['resisRasterBase'] = 'ecol_resis3_nodata2.asc'
 
@@ -2178,7 +2215,7 @@ print 'Done'
 # NEXT STEPS
 # massive tiles
 # This results in memory error for 10k x 10k raster:
-# pmap = npy.loadtxt(filename, skiprows=6, usecols=range(2,3), dtype=data_type)
+# pmap = npy.loadtxt(filename, skiprows = 6, usecols = range(2,3), dtype = data_type)
 # Instead, could try load using memory mapping?
 #       No, doesn't work. Can't create npy file in first place.
 # Add iterative
@@ -2257,8 +2294,8 @@ BIG PROBLEM??
 
 PRE-SOLVE CLIMATE MODULE
 modify sources, targets, based on criteria in options:
-mode='gradient': present day temp
-mode='velocity': present and future climate var's. Assume 2 for now.
+mode = 'gradient': present day temp
+mode = 'velocity': present and future climate var's. Assume 2 for now.
 for velocity:
    block climate variables (up to 4 rasters)
    calculate euc climate distances between each center target cell and all other cells in block. use these to modify target & source strengths
@@ -2285,7 +2322,7 @@ from omniscape import *
         # block size
         # targonly- amount of current is based on sum of target strengths in block. source strengths proportional to source strength layer (and distance function if appl)
         # options['radius']
-        # calc_current
+        # rrent
         # calc_flow_accum
         # distance function for source strengths
             # from math import *
@@ -2309,14 +2346,14 @@ saveFade- sums up fades and saves. Will take more memory.
 
 # sourceRaster
 # useSourceRasterCutoff #binary 1/0 if above(?) this value or have negative values to denote below this value
-    # srcRasCutoffVal=
+    # srcRasCutoffVal = 
 
 # INDEP SOURCES AND TARGS    
 # If not options['useSourceRaster'] or useTargetRaster:
     # sourceraster, targraster = everything < sRCutoff, tRCutoff in resisRaster
     # if options['useSourceRaster'] and not useTargetRaster:
-        # sourceRaster,  = sourceRaster (strength = raster values)
-        # targraster= everything < tRCutoff in resisRaster
+        # sourceRaster, = sourceRaster (strength = raster values)
+        # targraster = everything < tRCutoff in resisRaster
     # if useTargetRaster and not sourceRaster:
         # targs = targetRaster (strength = raster values?)
         # sources = everything < sRCutoff in resisRaster
@@ -2335,10 +2372,10 @@ saveFade- sums up fades and saves. Will take more memory.
         
     # ALSO NEED CLIMATE TARGONLY
    # larger areas = more dispersers absorbed
-   # approximate results with bandsize=1
+   # approximate results with bandsize = 1
    # total current = ntargs that differ with at least one source
    # for each target, tally if there's any sources
-    # after this line: tCutoffArray=npy.where(tDiffArray>=options[tCutoff'],1,0)
+    # after this line: tCutoffArray = npy.where(tDiffArray>= options[tCutoff'],1,0)
 
 #4/16/15:
 # removed polygonblocks
@@ -2371,7 +2408,7 @@ saveFade- sums up fades and saves. Will take more memory.
 #re-scale FA results 1-100?
 #place ground node at center of mass of target block?
 
-#Note: because of mis-alignment of block centers and source pixels, can get different flow lines when a pixel is a source and whena pixel is a target. Can happen even with blocksize=3, will increase with larger blocks.
+#Note: because of mis-alignment of block centers and source pixels, can get different flow lines when a pixel is a source and whena pixel is a target. Can happen even with blocksize = 3, will increase with larger blocks.
 # Could help to have ground at center of mass of target block
 
 # Things to vary for initial experiments:
@@ -2398,10 +2435,10 @@ saveFade- sums up fades and saves. Will take more memory.
     # shareConductanceArray = centerConductanceArray/sumCenterConductances
 
     # # sumCenterCurrents = current at ground, or sum of currents 1 pixel away
-    # # sumCenterCurrents= multiplier
+    # # sumCenterCurrents = multiplier
     
-    # #sumCenterCurrents= sum of ALL currents in center
-    # sumCenterCurrents=centerCurrentArray.sum()  
+    # #sumCenterCurrents = sum of ALL currents in center
+    # sumCenterCurrents = centerCurrentArray.sum()  
     
     # print 'sumcur', sumCenterCurrents
     # centerCurrentArrayNew = shareConductanceArray * sumCenterCurrents

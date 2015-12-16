@@ -4,6 +4,10 @@ ehthumbs.db
 
 test*.py
 test.py
+info
+info/
+info/arc.dir
+info\arc.dir
 info/*.*
 extras/
 
@@ -47,3 +51,13 @@ Network Trash Folder
 Temporary Items
 .apdisk
 .prj
+OmniScapeLim20.py
+OmniScapeLim100.py
+OmniScapeLim.py
+*.xml
+t_t031/dblbnd.adf
+OmniScapeLim10.py
+test.py
+*.adf
+test.py
+*.dir
