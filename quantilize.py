@@ -1,4 +1,4 @@
-raster = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape\curSum_25_50_100_200km.tif'
+raster = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_540m_Mockup\CS_540m_100km_Lim5\CS_540m_100km_Lim5.gdb\current_MOS_cur_draft6R540m0_lim925_srcRas_draft6Hab540m0__r185b25_distFn_targOnlycg_f25clipC'
 numQuantiles=100
 
 import os 
@@ -57,11 +57,13 @@ def quantilize(raster,numQuantiles):
             quantileRaster = arcpy.NumPyArrayToRaster(quantileArray,pnt,
                                                  cellSize,cellSize,-9999)
             arcpy.DefineProjection_management(quantileRaster,spatialReference)
-            fileBase,ext=os.path.splitext(raster)
-            outPath=fileBase+'_PCT'+ext
+            # fileBase,ext=os.path.splitext(raster)
+            dir,file=os.path.split(raster)
+            outPath=os.path.join(dir,'p'+file)
             
             quantileRaster.save(outPath)
-    # except:
+            print 'Saved to:\n',outPath
+            # except:
         # print'failed to quantilize'
        
 def seq(start, stop, step=1):
