@@ -1,3 +1,5 @@
+# Use new code on costat for 540m mockups. Need to try cwd cutoff of radius. may tone down coplat. 
+
 #restart
 # if restart:
     # for bandnum in range
@@ -24,19 +26,19 @@ tile = -2 # For running overlapping tiles created by ArcGIS, to be stitched toge
 options = {}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 100# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 25 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['radius'] = 93# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['blockSize'] = 45 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
-options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape'# this is where all the input data are, and where out directory will be created.
-options['resisRasterBase'] = 'clip_PNWR450Test.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_R_max_540m_clip.tif'# # Resistance raster name. All input should be same extent, projection, etc.
-options['outputDirBase'] = 'testFixCWDdistEq2'
+options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_1080m'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'rDraft7_1080mclip2.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_R_max_540m_clip.tif'# # Resistance raster name. All input should be same extent, projection, etc.
+options['outputDirBase'] = 'limCWDDisteqNOTargOnly'
 
 options['useSourceRaster'] = False #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
-options['sourceRasterBase'] = 'habDraft7_1080m.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
+options['sourceRasterBase'] = 'habDraft7_1080mclip2.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
 options['sourceInverseR'] = False # Source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
-options['rCutoff'] = 2000# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
+options['rCutoff'] = 1# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
 options['squareResistances'] = False # Will square resistance raster before doing any calculations. sourceInverseR and rCutoff applied before squaring.
 
 # CALCULATE MAXIMUM INSTEAD OF SUM OF CURRENT ACROSS ITERATIONS
@@ -70,7 +72,7 @@ options['maxDist'] = None # Sources farther than this will have no current injec
 options['calcFA'] = True
 options['addRandomResistances'] = False #add random values to FA resis raster
 options['limitCalcsByCWD'] = True
-options['cwdLimit'] = options['radius'] / 5
+options['cwdLimit'] = options['radius']
 
 options['useCwDistanceFunction'] = False # NOT COMPLETED/TESTED YET
 options['cwDistEq'] = "(cwdLimit-cwDist)/cwdLimit" # Distance equation for source strengths. Use NONE to ignore
@@ -81,17 +83,17 @@ options['calcCurrent'] = True
 # OPTION TO LIMIT ANALYSIS EXTENT ####  
 # Bands are horizontal, with width equal to blockSize. There are approx nrows/blockSize bands in a raster. Stripes are vertical, with width equal to blocksize.
 # These options allow you to only process a subset of bands and stripes. 
-options['startBand'] = 3# First band to process. Use 0 to ignore.
-options['endBand'] = 3 # Stops after processing this band. Use 0 to ignore.
-options['startStripe'] = 3 # First stripe to process. Use 0 to ignore.
-options['endStripe'] = 3 # Stops after processing this stripe. 0 to ignore.
+options['startBand'] = 0# First band to process. Use 0 to ignore.
+options['endBand'] = 0 # Stops after processing this band. Use 0 to ignore.
+options['startStripe'] = 0 # First stripe to process. Use 0 to ignore.
+options['endStripe'] = 0 # Stops after processing this stripe. 0 to ignore.
 
 # VOLTAGES #### Note: code not complete yet!
 options['calcVoltages'] = False
 options['adjustVoltages'] = False
 
 # TARGETS AND WEIGHTING ####
-options['weightTargOnly'] = True # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
+options['weightTargOnly'] = False # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
 # Recommend not changing following
 options['noWeight'] = False # Recommend False. 
 options['centerGround'] = True# Recommend True.
@@ -99,7 +101,7 @@ options['negTargets'] = False # Recommend False. negative sources at targets- bl
 
 
 # FADE CURRENTS #FIXME: check out divide by zero in fade calc
-options['fadeIn'] = False# Decreases current from each solve linearly with distance to center. Helps with artifacts from blocks. Best with center ground.
+options['fadeIn'] = True# Decreases current from each solve linearly with distance to center. Helps with artifacts from blocks. Best with center ground.
 from math import *
 options['fadeInDist'] = options['blockSize'] #(options['blockSize'])#-1)/2#/4.0#sqrt(2)*(options['blockSize']/2.0)#options['radius']/2 #
 options['fadeConstant'] = 0.25 # Constant added to numerator and denominator in fade equation. Avoids zero current at center ground. Higher values mean more current at ground 
@@ -387,9 +389,7 @@ def omniscape(options):
             
             solveInBand = True
             if options['calcFA']:
-                rFA2, options, flowSourceCorrection, maxFlow, sourceArray2 = calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArrayFA,iter,resisRaster)
-                print npy.max(sourceArray-sourceArray2)
-                print npy.min(sourceArray-sourceArray2)
+                rFA2, options, flowSourceCorrection, maxFlow, sourceArray = calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArrayFA,iter,resisRaster)
                 
                 if maxFlow <= 0:
                     print 'NO FLOW, continuing'
@@ -650,7 +650,6 @@ def calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArr
         # outCon = arcpy.sa.Con(arcpy.sa.Raster(options['cwdRaster'])<cwdLimit,sourceRasFA,0)       
         if options['useCwDistanceFunction']:
             print 'CWDDISTANCE FUNCTION NOT TESTED YET'
-            
             sourceArray = modify_source_strengths_by_cwd(sourceArray, circleHeader, LLC, yMin, options) #do this once, pass back
         sourceRasFA = arcpy.NumPyArrayToRaster(sourceArray,LLC, circleHeader['cellsize'],circleHeader['cellsize'],-9999)              
         rFA = arcpy.sa.FlowAccumulation( rFD, sourceRasFA ) #Note! removed source strengths again 
@@ -670,12 +669,12 @@ def calc_fa(options,groundAsciiFile,circleHeader,yMin,sourceArray,circleResisArr
     del rCB, rFD, rFA
     # Adjust flow if some sources in different components than target block
     flowSourceCorrection = 1 
+    maxFlow = get_raster_max(rFA2)
     if (options['weightTargOnly']) or (options['noWeight']):
         #Need to know if some sources were in different components than target block
         # if noweight, divide by sourceCorrection
         # if targonly, ""
-        # else, do nothing (washes out)  
-        maxFlow = get_raster_max(rFA2)
+        # else, do nothing (comes out in wash)  
         if 1-maxFlow > 0.01 and maxFlow > 0:
             flowSourceCorrection = maxFlow
     return rFA2, options, flowSourceCorrection, maxFlow, sourceArray
