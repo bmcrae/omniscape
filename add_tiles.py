@@ -1,46 +1,61 @@
 projectDir = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape'# this is where all the input data are, and where out directory will be created.
-outputDirBase = 'd6_540m_100km_1Lim'
+inputDirBase = 'd6_540m_100km_NoLim'#'d6_540m_100km_5Lim'
+outputDirBase = inputDirBase + 'AddedRasters'
 numQuantiles=100
 extractMask =r'D:\gis_data\NACR\McRae\Duke_PNW_Omniscape\PNW_study_area_poly_BHM.shp'
 tasks = ['cur']#,'flow']#,'volt']
     
 import os
+import shutil
 import re
 import arcpy
 from arcpy.sa import *
 arcpy.CheckOutExtension("spatial")
 arcpy.env.overwriteOutput = True  
 
-
-
 def mosaic():
-    mosaicDir = os.path.join(projectDir,outputDirBase)
-    if not os.path.exists(mosaicDir):
-        os.mkdir(mosaicDir)
+    inputDir = os.path.join(projectDir,inputDirBase)
+    outputDir = os.path.join(inputDir,outputDirBase)
+    delete_dir(outputDir)
+    if not os.path.exists(outputDir):
+        os.mkdir(outputDir)
 
     
     for task in tasks:
         print 'Task=',task
-        expression = ''
-        
-        tileDir = os.path.join(projectDir,outputDirBase)
+        tileDir = os.path.join(projectDir,inputDirBase)
         if not os.path.exists(tileDir):
             print'Path does not exist:',tileDir
             continue
-        count=0
+
         for f in os.listdir(tileDir):
             fn,ext = os.path.splitext(f)
 
+            if task == 'flow':
+                if ext == '.tif' and (fn[0]=='f'):
+                    flowRas = os.path.join(tileDir,f)
+                    zeroFlowRas = arcpy.sa.Con(arcpy.sa.IsNull(flowRas),0,flowRas)
+                    dir,file=os.path.split(flowRas)
+                    zFRasPath = os.path.join(dir,'z'+file)
+                    zeroFlowRas.save(zFRasPath)
 
-            if ext == '.tif' and ((fn[0]=='v' and task == 'volt') or (fn[0]=='c' and task == 'cur') or (fn[0]=='f' and task == 'flow')):
+        expression = ''
+        
+        count=0
+        for f in os.listdir(tileDir):
+            fn,ext = os.path.splitext(f)
+                
+            if ext == '.tif' and '_SB' in fn and ((fn[0]=='v' and task == 'volt') or (fn[0]=='c' and task == 'cur') or (fn[0]=='z' and task == 'flow')):
                 rasterPath= os.path.join(tileDir,f)
                 count=count+1
                 if count==1:
+                    print 'rasterPath is ',rasterPath
                     fn=re.sub(r'_SB\w+_f', '_f', fn)
-                    mosFN = task + '_MOSB_' + fn.replace('.','')
-                    outRaster = mosaicDir+'\\'+mosFN+'.tif'
+                    mosFN = 'a'+fn.replace('.','')
+                    outRaster = outputDir+'\\'+mosFN+'.tif'
                     delete_data(outRaster)
-
+                    clipRaster = outputDir+'\\f'+mosFN+'clp.tif'         
+                    delete_data(clipRaster)
                     expression = rasterPath
                 else:
                     # rasterString = rasterString + '"'+rasterPath+'"'+";"  
@@ -63,15 +78,16 @@ def mosaic():
         if extractMask is not None:
             print "Extracting by mask file"
             extractRasFN = mosFN+'clp.tif'
-            extractRasPath =os.path.join(mosaicDir,extractRasFN)
-            outRas = arcpy.sa.ExtractByMask(os.path.join(mosaicDir,mosFN+'.tif'), extractMask)
+            extractRasPath =os.path.join(outputDir,extractRasFN)
+            outRas = arcpy.sa.ExtractByMask(os.path.join(outputDir,mosFN+'.tif'), extractMask)
             outRas.save(extractRasPath)
+            # delete_data(os.path.join(outputDir,mosFN+'.tif'))
             raster = extractRasPath
         else:
-            raster = os.path.join(mosaicDir, mosFN + '.tif')
+            raster = os.path.join(outputDir, mosFN + '.tif')
         if numQuantiles is not None and task == 'cur':
             quantilize(raster, numQuantiles)
-        # arcpy.env.Workspace=mosaicDir
+        # arcpy.env.Workspace=inputDir
         # outInt = Int(Raster(os.path.join(outGDB,mosFN)))
 
         # rasterPath = os.path.join(outGDB,'INT_'+mosFN)
@@ -151,6 +167,15 @@ def seq(start, stop, step=1):
     n = int(round((stop - start)/float(step)))
     if n > 1:
         return([start + step*i for i in range(n+1)])
+
+        
+def delete_dir(dir):
+    try:
+        if os.path.exists(dir):
+            shutil.rmtree(dir)
+        return
+    except:
+        return
         
 if __name__ == '__main__':
     mosaic()
