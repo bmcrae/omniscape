@@ -1,5 +1,25 @@
-tileNum = -1 # 0 to ignore. ONLY WORKS ON SERVERS. For running tiled bands to be stitched together later.
-numTiles = 5 # number of horizontal tiles to break into if tileNum > 0.
+# Use new code on costat for 540m mockups. Need to try cwd cutoff of radius. may tone down coplat. 
+
+#restart
+# if restart:
+    # for bandnum in range
+    # cum=prev
+# Need to reduce cumulative memory footprint
+# cumulative rasters are stored in memory. need to keep in scratch directory?
+
+#does 100rad cwd lim fix islands? No. Even 10 has extra southern hood canal crossing at 270m, 
+# and mouth of hood canal crossing at 540. Trying 5.
+# vashon island has crossing at 10, 270m.
+# 5 is fairly limiting.
+
+# settling on 100km, 270m, blocksize 25? 55?
+# run without cwdlim as well?
+
+# Does CWd lim need to change with dif cell size?
+# Need to fade Flowlines? 
+# just set flowlines to zero in block?
+
+tile = -2 # For running overlapping tiles created by ArcGIS, to be stitched together later
 #---------------------------------------------------------------------
 # INPUTS #
 #---------------------------------------------------------------------
@@ -7,22 +27,19 @@ options = {}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
 options['radius'] = 93# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 15 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['blockSize'] = 45 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
-options['projectDir'] = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape'# this is where all the input data are, and where out directory will be created.
-options['resisRasterBase'] = 'DUKE_CIRCUITSCAPE_resistances_draft6_R_max_540m.tif'
-options['outputDirBase'] = 'd6_540m_100km_1Lim'
+options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_1080m'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'rDraft7_1080mclip2.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_R_max_540m_clip.tif'# # Resistance raster name. All input should be same extent, projection, etc.
+options['outputDirBase'] = 'limCWD5DisteqTargOnly'
 
 options['useSourceRaster'] = True #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
-options['sourceRasterBase'] = 'DUKE_CIRCUITSCAPE_resistances_draft6_HABITAT_min_540m.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
+options['sourceRasterBase'] = 'habDraft7_1080mclip2.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
 options['sourceInverseR'] = False # Source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
 options['rCutoff'] = 1# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
 options['squareResistances'] = False # Will square resistance raster before doing any calculations. sourceInverseR and rCutoff applied before squaring.
-
-options['squareRootInputs'] = False
-
 
 # CALCULATE MAXIMUM INSTEAD OF SUM OF CURRENT ACROSS ITERATIONS
 options['calcMaxCur'] = False #Note: this has more tiling/fading issues.
@@ -55,7 +72,7 @@ options['maxDist'] = None # Sources farther than this will have no current injec
 options['calcFA'] = True
 options['addRandomResistances'] = False #add random values to FA resis raster
 options['limitCalcsByCWD'] = True
-options['cwdLimit'] = options['radius'] 
+options['cwdLimit'] = options['radius'] * 5
 
 options['useCwDistanceFunction'] = False # NOT COMPLETED/TESTED YET
 options['cwDistEq'] = "(cwdLimit-cwDist)/cwdLimit" # Distance equation for source strengths. Use NONE to ignore
@@ -90,7 +107,7 @@ options['fadeInDist'] = options['blockSize'] #(options['blockSize'])#-1)/2#/4.0#
 options['fadeConstant'] = 0.25 # Constant added to numerator and denominator in fade equation. Avoids zero current at center ground. Higher values mean more current at ground 
 
 # Quantilize maps ####
-options['quantilizeMaps'] = False # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
+options['quantilizeMaps'] = True # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
 options['numQuantiles'] = 100
 
 # SPECIAL FUNCTIONS
@@ -99,9 +116,6 @@ options['calcFANull'] = False
 options['saveSourceAndTargetCounts'] = False # #Save source and target counts when doing climate analyses
 options['doSourceAndTargetCountsOnly'] = False # if saving counts, DON'T calculate current
 options['printTimings'] = True
-
-    
-    
 #---------------------------------------------------------------------
 # END INPUTS #
 #---------------------------------------------------------------------
@@ -129,10 +143,6 @@ arcpy.env.overwriteOutput = True
 
 def omniscape(options):
     theStart = datetime.datetime.now()  
-    # TILING
-    options['tileNum'] = tileNum
-    options['numTiles'] = numTiles
-
     options = set_options_and_dirs(options)   
     copy_this_file(options)
     
@@ -140,7 +150,6 @@ def omniscape(options):
     arcpy.env.Workspace = options['scratchDir']
     os.environ["TEMP"] = options['scratchDir']
     os.environ["TMP"] = options['scratchDir']    
-    
 
     # Set raster paths and export to ascii if needed. FIXME: don't really need ascii, just convenient for header code for now
     resisRaster = path.join(options['projectDir'],options['resisRasterBase'])
@@ -165,9 +174,6 @@ def omniscape(options):
         sourceRaster = arcpy.sa.Con((arcpy.Raster(resisRaster) <= options['rCutoff']),1,0)
     resisRaster = square_resistances(resisRaster,options)
     
-    if options['squareRootInputs']:
-        resisRaster, sourceRaster = sqr_root_inputs(resisRaster, sourceRaster, options)
-        
     # Next line needed to avoid shift of one pixel in band function using rasterToNumpyArray. Don't ask me why.               
     sourceRaster = arcpy.sa.Con(arcpy.sa.Raster(resisRaster)>0,sourceRaster) 
     
@@ -708,26 +714,6 @@ def square_resistances(inRaster,options):
             inRaster = resisRasterSQ    
         return inRaster
 
-        
-def sqr_root_inputs(resisRaster, sourceRaster,options):
-    descData = arcpy.Describe(resisRaster)
-    arcpy.env.extent = descData.Extent    
-
-    fileBase, fileExtension = path.splitext(options['resisRasterBase'])
-    resisRasterSQRT = path.join(options['scratchDir'],'sqrt_'+fileBase+'.tif')
-    outResistanceRaster = arcpy.sa.SquareRoot(resisRaster) 
-    outResistanceRaster.save(resisRasterSQRT)           
-    resisRaster = resisRasterSQRT    
-        
-    
-    fileBase, fileExtension = path.splitext(options['sourceRasterBase'])
-    sourceRasterSQRT = path.join(options['scratchDir'],'sqrt_'+fileBase+'.tif')
-    outSourceRaster = arcpy.sa.SquareRoot(sourceRaster) 
-    outSourceRaster.save(sourceRasterSQRT)           
-    sourceRaster = sourceRasterSQRT            
-    return resisRaster, sourceRaster
-    
-        
 @profile        
 def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, t2PC1BandArray, t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options):                
     print 'Starting climate using PCs'
@@ -1181,28 +1167,6 @@ def clean_up(options):
 def set_options_and_dirs(options):
     """derives output base filename by combining input options. Also handles filenames for tiling. Checks and corrects options    """    
 
-    if options['tileNum'] > 0:
-        if options['tileNum'] > options['numTiles']:
-            print 'Error: tile number (tileNum) cannot be higher than number of tiles (numTiles).'
-            exit(0)    
-
-        print 'Tiling with ',options['numTiles'],'tiles. Running tile#',options['tileNum'],'in this instance.'
-        print 'Any manually set start and end bands will be ignored.'
-        resisRaster = path.join(options['projectDir'],options['resisRasterBase'])
-        header = get_header(resisRaster)
-        approxEndBand = int(header['nrows']/options['blockSize'])+1   
-        tileSize = int(approxEndBand/options['numTiles'])+1
-        print 'There are approximately',approxEndBand,'bands in the dataset.'
-        print 'Tile size is',tileSize,'bands.'
-        
-        options['startBand'] = (tileNum-1) * tileSize + 1
-        options['endBand'] = (tileNum) * tileSize 
-        if options['endBand']>approxEndBand:
-            options['endBand'] = 0
-        print 'startBand is',options['startBand']
-        print 'endBand is',options['endBand']
-        
-    
     if options['limitCalcsByCWD'] and not options['calcFA']:
         print 'Error: cannot limit calculations by CWD unless calcFA is set to True.'
         exit(0)    
@@ -1213,41 +1177,37 @@ def set_options_and_dirs(options):
     if not options['calcCurrent'] and not options['calcFA']:
         print 'Error: must either calculate current or flow accumulation. Both are set to False.'
         exit(0)
-    
+
     if options['calcNull']:
         options['outputDirBase'] = options['outputDirBase']+'_NULL'
-
-    options['scratchDirBase'] = 'scratch'+options['outputDirBase'] 
-    if options['tileNum'] > 0:
-        options['scratchDirBase'] = options['scratchDirBase'] + str(options['tileNum'])
-
+    options['projectDirBase'] = 'scratch'+options['outputDirBase']
     options['compress'] = False
     
-    # if tile >= 0: 
-        # options['outputDirBase'] = options['outputDirBase']+str(tile)
-        # options['scratchDirBase'] = options['scratchDirBase']+str(tile)
-        # fileBase,ext = os.path.splitext(options['resisRasterBase'])
-        # options['resisRasterBase'] = fileBase+str(tile)+ext
-        # if options['useClimate']:
-            # if not options['matchClimatePCs']:
-                # fileBase,ext = os.path.splitext(options['climateRasterBase'])
-                # options['climateRasterBase'] = fileBase+str(tile)+ext
-            # else:
-                # fileBase,ext = os.path.splitext(options['t1PC1RasterBase'])
-                # options['t1PC1RasterBase'] = fileBase+str(tile)+ext
+    if tile >= 0: 
+        options['outputDirBase'] = options['outputDirBase']+str(tile)
+        options['projectDirBase'] = options['projectDirBase']+str(tile)
+        fileBase,ext = os.path.splitext(options['resisRasterBase'])
+        options['resisRasterBase'] = fileBase+str(tile)+ext
+        if options['useClimate']:
+            if not options['matchClimatePCs']:
+                fileBase,ext = os.path.splitext(options['climateRasterBase'])
+                options['climateRasterBase'] = fileBase+str(tile)+ext
+            else:
+                fileBase,ext = os.path.splitext(options['t1PC1RasterBase'])
+                options['t1PC1RasterBase'] = fileBase+str(tile)+ext
         
-                # fileBase,ext = os.path.splitext(options['t2PC1RasterBase'])
-                # options['t2PC1RasterBase'] = fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['t2PC1RasterBase'])
+                options['t2PC1RasterBase'] = fileBase+str(tile)+ext
 
-                # fileBase,ext = os.path.splitext(options['t1PC2RasterBase'])
-                # options['t1PC2RasterBase'] = fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['t1PC2RasterBase'])
+                options['t1PC2RasterBase'] = fileBase+str(tile)+ext
 
-                # fileBase,ext = os.path.splitext(options['t2PC2RasterBase'])
-                # options['t2PC2RasterBase'] = fileBase+str(tile)+ext
+                fileBase,ext = os.path.splitext(options['t2PC2RasterBase'])
+                options['t2PC2RasterBase'] = fileBase+str(tile)+ext
                 
-        # if options['useSourceRaster']:
-            # fileBase,ext = os.path.splitext(options['sourceRasterBase'])    
-            # options['sourceRasterBase'] = fileBase+str(tile)+ext
+        if options['useSourceRaster']:
+            fileBase,ext = os.path.splitext(options['sourceRasterBase'])    
+            options['sourceRasterBase'] = fileBase+str(tile)+ext
             
     if options['startBand'] is None: options['startBand'] = 0 
     if options['startStripe'] is None: options['startStripe'] = 0
@@ -1392,19 +1352,14 @@ def set_options_and_dirs(options):
         print 'maxDist',options['maxDist'] 
 
     options['outputDir'] = os.path.join(options['projectDir'],options['outputDirBase'])
-    options['scratchDir'] = os.path.join(options['projectDir'],options['scratchDirBase'])
+    options['scratchDir'] = os.path.join(options['projectDir'],options['projectDirBase'])
     print 'project Dir',options['projectDir']
     print 'output Dir',options['outputDirBase']
     delete_dir(options['scratchDir'])
+    if not path.exists(options['projectDir']):
+        os.mkdir(options['projectDir'])
     if not path.exists(options['scratchDir']):
         os.mkdir(options['scratchDir'])
-    # else:
-        # for i in range(1,50):
-            # scratchDir = options['scratchDir'] + str(i)
-            # if not path.exists(scratchDir):
-                # options['scratchDir'] = scratchDir
-                # os.mkdir(options['scratchDir'])   
-                # break
     if not path.exists(options['outputDir']):
         os.mkdir(options['outputDir'])
     print '\n'
