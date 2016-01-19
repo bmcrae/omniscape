@@ -3,7 +3,7 @@ inputDirBase = 'd6_540m_100km_NoLim'#'d6_540m_100km_5Lim'
 outputDirBase = inputDirBase + 'AddedRasters'
 numQuantiles=100
 extractMask =r'D:\gis_data\NACR\McRae\Duke_PNW_Omniscape\PNW_study_area_poly_BHM.shp'
-tasks = ['cur']#,'flow']#,'volt']
+tasks = ['flow']#['cur']#,'flow']#,'volt']
     
 import os
 import shutil
