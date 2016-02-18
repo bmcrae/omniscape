@@ -1,4 +1,4 @@
-raster = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_540m_Mockup\CS_540m_100km_Lim5\CS_540m_100km_Lim5.gdb\current_MOS_cur_draft6R540m0_lim925_srcRas_draft6Hab540m0__r185b25_distFn_targOnlycg_f25clipC'
+raster = r'C:\temp\agregated_rasters.gdb\acur_R_d8_clpF_180m_srcRas_Hab_d8_clp_180m__r278b31_targOnlycg_f31_CellFactor3_MEAN_sm'#'C:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_540m_Mockup\CS_540m_100km_Lim5\CS_540m_100km_Lim5.gdb\current_MOS_cur_draft6R540m0_lim925_srcRas_draft6Hab540m0__r185b25_distFn_targOnlycg_f25clipC'
 numQuantiles=100
 
 import os 

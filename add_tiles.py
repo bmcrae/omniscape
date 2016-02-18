@@ -1,9 +1,14 @@
-projectDir = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape'# this is where all the input data are, and where out directory will be created.
-inputDirBase = 'd6_540m_100km_NoLim'#'d6_540m_100km_5Lim'
+
+# if null, Add focal stats to take mean before clipping.
+# ..or not. could do focal stats separately and only for producing final null map.
+
+projectDir = r'd:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_180m'# this is where all the input data are, and where out directory will be created.
+
+inputDirBase = 'd8_50km_NULL'#'d6_540m_100km_5Lim'
 outputDirBase = inputDirBase + 'AddedRasters'
 numQuantiles=100
-extractMask =r'D:\gis_data\NACR\McRae\Duke_PNW_Omniscape\PNW_study_area_poly_BHM.shp'
-tasks = ['flow']#['cur']#,'flow']#,'volt']
+extractMask =r'C:\DATADRIVE\DUKE_PNW_DATA\CIRCUITSCAPE_RESISTANCES_DUKE_PNW_CA\DUKE_FINAL_RESIS_RASTERS\PNW_study_area_poly_BHM.shp' #None to ignore, otherwise will cip to this
+tasks = ['cur','volt']
     
 import os
 import shutil
@@ -15,6 +20,10 @@ arcpy.env.overwriteOutput = True
 
 def mosaic():
     inputDir = os.path.join(projectDir,inputDirBase)
+    if not os.path.exists(inputDir):
+        print("Error. Directory " + inputDir + " doesn't exist.")
+        raw_input('Press Enter to exit.')
+        exit(0)
     outputDir = os.path.join(inputDir,outputDirBase)
     delete_dir(outputDir)
     if not os.path.exists(outputDir):
@@ -45,7 +54,7 @@ def mosaic():
         for f in os.listdir(tileDir):
             fn,ext = os.path.splitext(f)
                 
-            if ext == '.tif' and '_SB' in fn and ((fn[0]=='v' and task == 'volt') or (fn[0]=='c' and task == 'cur') or (fn[0]=='z' and task == 'flow')):
+            if ext == '.tif' and '_SB' in fn and '_PCT' not in fn and ((fn[0]=='v' and task == 'volt') or (fn[0]=='c' and task == 'cur') or (fn[0]=='z' and task == 'flow')):
                 rasterPath= os.path.join(tileDir,f)
                 count=count+1
                 if count==1:
