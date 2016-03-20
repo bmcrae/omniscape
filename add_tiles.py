@@ -1,10 +1,12 @@
 
-# if null, Add focal stats to take mean before clipping.
-# ..or not. could do focal stats separately and only for producing final null map.
+options['projectDir'] = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape\d8_omniscape'#'D:\Users\bmcrae\Duke_PNW_Omniscape\d8_omniscape' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'R_d8_clpF_180m.tif'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
+options['outputDirBase'] = 'd8_50km_correct'
 
-projectDir = r'd:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_180m'# this is where all the input data are, and where out directory will be created.
 
-inputDirBase = 'd8_50km_NULL'#'d6_540m_100km_5Lim'
+projectDir = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape\d8_omniscape'# this is where all the input data are, and where out directory will be created.
+
+inputDirBase = 'd8_50km_correct'#'d6_540m_100km_5Lim'
 outputDirBase = inputDirBase + 'AddedRasters'
 numQuantiles=100
 extractMask =r'C:\DATADRIVE\DUKE_PNW_DATA\CIRCUITSCAPE_RESISTANCES_DUKE_PNW_CA\DUKE_FINAL_RESIS_RASTERS\PNW_study_area_poly_BHM.shp' #None to ignore, otherwise will cip to this
@@ -168,7 +170,8 @@ def quantilize(raster,numQuantiles):
             outPath=os.path.join(dir,'p'+file)
             
             quantileRaster.save(outPath)
-            print 'Saved quantilized raster to:',outPath
+            print 'Saved quantilized raster to:'
+            print outPath
     # except:
         # print'failed to quantilize'
        

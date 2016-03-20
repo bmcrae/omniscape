@@ -844,31 +844,6 @@ def set_options_and_dirs(options):
 
         options['compress'] = False
         
-        # if tile >= 0: 
-            # options['outputDirBase'] = options['outputDirBase']+str(tile)
-            # options['scratchDirBase'] = options['scratchDirBase']+str(tile)
-            # fileBase,ext = os.path.splitext(options['c1RasterBase'])
-            # options['c1RasterBase'] = fileBase+str(tile)+ext
-            # if options['useClimate']:
-                # if not options['matchClimatePCs']:
-                    # fileBase,ext = os.path.splitext(options['climateRasterBase'])
-                    # options['climateRasterBase'] = fileBase+str(tile)+ext
-                # else:
-                    # fileBase,ext = os.path.splitext(options['c2RasterBase'])
-                    # options['c2RasterBase'] = fileBase+str(tile)+ext
-            
-                    # fileBase,ext = os.path.splitext(options['c4RasterBase'])
-                    # options['c4RasterBase'] = fileBase+str(tile)+ext
-
-                    # fileBase,ext = os.path.splitext(options['c3RasterBase'])
-                    # options['c3RasterBase'] = fileBase+str(tile)+ext
-
-                    # fileBase,ext = os.path.splitext(options['c5RasterBase'])
-                    # options['c5RasterBase'] = fileBase+str(tile)+ext
-                    
-            # if options['useSourceRaster']:
-                # fileBase,ext = os.path.splitext(options['sourceRasterBase'])    
-                # options['sourceRasterBase'] = fileBase+str(tile)+ext
                 
         if options['startBand'] is None: options['startBand'] = 0 
         if options['startStripe'] is None: options['startStripe'] = 0

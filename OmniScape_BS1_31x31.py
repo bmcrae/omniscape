@@ -1,5 +1,3 @@
-
-
 tileNum = 0 # 0 to ignore. ONLY WORKS ON SERVERS. For running tiled bands to be stitched together later.
 numTiles = 8 # number of horizontal tiles to break into if tileNum > 0.
 #---------------------------------------------------------------------
@@ -8,19 +6,19 @@ numTiles = 8 # number of horizontal tiles to break into if tileNum > 0.
 options = {}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 3# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 3 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['radius'] = 278# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['blockSize'] = 31 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
-options['projectDir'] = r'C:\Temp\Heiner'#r'D:\Users\bmcrae\Duke_PNW_Omniscape\d8_omniscape' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
-options['resisRasterBase'] = 'r_3vphsa_sm.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
-options['outputDirBase'] = 'Heiner80kma'
+options['projectDir'] = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape\d8_omniscape'#'D:\Users\bmcrae\Duke_PNW_Omniscape\d8_omniscape' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'R_d8_clpF_180m.tif'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
+options['outputDirBase'] = 'd8_50km_correct'
 
 options['useSourceRaster'] = True #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
-options['sourceRasterBase'] = 'te9x_sel82_sm_ones.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
+options['sourceRasterBase'] = 'Hab_d8_clp_180m.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
 options['sourceInverseR'] = False # Source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
-options['rCutoff'] = 1# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
+options['rCutoff'] = 1000# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
 options['squareResistances'] = False # Will square resistance raster before doing any calculations. sourceInverseR and rCutoff applied before squaring.
 
 options['squareRootInputs'] = False
@@ -54,8 +52,8 @@ options['maxDist'] = None # Sources farther than this will have no current injec
 # of current is injected farther from target. But can also happen when opposing (canceling) currents occur without min dist.
 
 # FLOW ACCUMULATION CALCULATIONS ####
-options['calcFA'] = True
-options['addRandomResistances'] = True #add random values to FA resis raster
+options['calcFA'] = False
+options['addRandomResistances'] = False #add random values to FA resis raster
 options['limitCalcsByCWD'] = False
 options['cwdLimit'] = options['radius'] 
 
@@ -80,11 +78,11 @@ options['endStripe'] = 0
 
                                                               
 # VOLTAGES #### Note: code not complete yet!
-options['calcVoltages'] = True
+options['calcVoltages'] = False
 options['adjustVoltages'] = False
 
 # TARGETS AND WEIGHTING ####
-options['weightTargOnly'] = False # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
+options['weightTargOnly'] = True # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
 # Recommend not changing following
 options['noWeight'] = False # Recommend False. 
 options['centerGround'] = True# Recommend True.
@@ -99,9 +97,11 @@ options['fadeConstant'] = 0.5 # Constant added to numerator and denominator in f
 options['setKernelMean'] = True
 
 options['useCorrectionArray'] = True
+options['currentCorrectionBase']= 'NullCorrectionCurrent_BS31a.tif'
+options['voltageCorrectionBase']= 'NullCorrectionVoltage_BS31.tif'
 
 # Quantilize maps ####
-options['quantilizeMaps'] = True # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
+options['quantilizeMaps'] = False # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
 options['numQuantiles'] = 100
 
 # SPECIAL FUNCTIONS
@@ -160,46 +160,14 @@ def omniscape(options):
         os.environ["TEMP"] = options['scratchDir']
         os.environ["TMP"] = options['scratchDir']    
         
-
-        if options['calcCurrent'] and options['useCorrectionArray']:
-            artifactArray = npy.ones((2*options['radius']+1,2*options['radius']+1),dtype = 'int32')
-            artifactHeader = createArtifactHeader(options)
-
-            subsetCenterRow = centerRow =subsetCenterCol=centerCol= options['radius']
-            artifactBS1Result = get_null_result(artifactArray, artifactHeader, subsetCenterRow, subsetCenterCol, blockSize = 1)
-            artifactBSXResult = get_null_result(artifactArray, artifactHeader, subsetCenterRow, subsetCenterCol, blockSize = options['blockSize'])
-            # then create larger grid, add in XxX nullBS1Result results
-#FIXME CHECK:            
-            artifactBS1SumArray = npy.zeros((2*options['radius']+options['blockSize']+1,2*options['radius']+options['blockSize']+1),dtype = 'float64')
-            for centerRow in range(options['radius'], options['radius']+options['blockSize']): 
-                for centerCol in range(options['radius'], options['radius']+options['blockSize']):
-                    artifactBS1SumArray = addData(artifactBS1SumArray, artifactBS1Result, centerRow, centerCol, options)
-
-                    
-        print artifactBS1SumArray  
-        print artifactBSXResult   
-        print npy.max(artifactBS1SumArray)
-        print npy.max(artifactBSXResult)
-        
-        grid = npy.indices((artifactArray.shape))
-        rowArray = grid[0]
-        colArray = grid[1]
-        del grid
-        # centerRow = ?
-        # sourceArray = circ(artifactBS1SumArray, rowArray, colArray, centerRow, centerRow, options['radius'])
-
-        
-        blarg
-        # calculate distancefunctionarray
-        # take just center out to r distance
-        # artifactCorrectionArray = divide, but if greater than some radius set to 1.
-
-
-
-
         if options['useCorrectionArray']:
-            correctionArray = arcpy.RasterToNumPyArray(os.path.join(options['projectDir'],'div3.tif'),"#","#","#",-9999)
-            correctionArray = npy.where(correctionArray<0,0.0,correctionArray)
+            currentCorrectionArray = arcpy.RasterToNumPyArray(os.path.join(options['projectDir'],options['currentCorrectionBase']),"#","#","#",-9999)
+            currentCorrectionArray = npy.where(currentCorrectionArray <0,0.0,currentCorrectionArray)
+            if options['calcVoltages']:
+                voltageCorrectionArray = arcpy.RasterToNumPyArray(os.path.join(options['projectDir'],options['voltageCorrectionBase']),"#","#","#",-9999)
+                voltageCorrectionArray = npy.where(voltageCorrectionArray <0,0.0,voltageCorrectionArray)
+            
+            
         # Set raster paths and export to ascii if needed. FIXME: don't really need ascii, just convenient for header code for now
         resisRaster = path.join(options['projectDir'],options['resisRasterBase'])
         descData = arcpy.Describe(resisRaster)
@@ -356,14 +324,14 @@ def omniscape(options):
                         continue 
 
                 # time consuming- add smart search. 
-                circleResisArray = circ(bandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius']) #fixme: move grid/rowarray calc into circ fn? 
+                circleResisArray = circ(bandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
                 if options['calcFA']:            
-                    circleResisArrayFA = circ(bandArrayFA, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])
+                    circleResisArrayFA = circ(bandArrayFA, rowArray, colArray, subsetCenterRow, centerCol, options)
 
-                sourceArray = circ(sourceBandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])
+                sourceArray = circ(sourceBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
                 sourceArray = npy.where(sourceArray < 0, 0, sourceArray)    #fixme- just set nodata sources to zero earlier    
 
-                targetArray = center_block(sourceArray, options['blockSize'], subsetCenterRow, subsetCenterCol)                             
+                targetArray = center_block(sourceArray, options, subsetCenterRow, subsetCenterCol)                             
                 targetSum = targetArray.sum()
                 if targetSum == 0:
                     continue
@@ -494,7 +462,7 @@ def omniscape(options):
                     if options['fadeIn']:
                         currentArray = fade_currents(currentArray, subsetCenterRow, subsetCenterCol, options)  
                     elif options['useCorrectionArray']:
-                        correctionArray2 = trim(correctionArray, centerRow, centerCol, header['nrows'], header['ncols'], options)
+                        correctionArray2 = trim(currentCorrectionArray, centerRow, centerCol, header['nrows'], header['ncols'], options)
                         currentArray = correctCurrents(currentArray, subsetCenterRow, subsetCenterCol, options, correctionArray2)
                         
                 if options['weightTargOnly']:
@@ -555,7 +523,7 @@ def omniscape(options):
                     if options['fadeIn']: #Fixme: do we want to fade voltages?
                         max_vdiff = fade_currents(max_vdiff, subsetCenterRow, subsetCenterCol, options)  
                     elif options['useCorrectionArray']:
-                        correctionArray2 = trim(correctionArray, centerRow, centerCol, header['nrows'], header['ncols'], options)
+                        correctionArray2 = trim(voltageCorrectionArray, centerRow, centerCol, header['nrows'], header['ncols'], options)
                         max_vdiff = correctCurrents(max_vdiff, subsetCenterRow, subsetCenterCol, options, correctionArray2)
 
                         # npy.where(max_vdiff>0,npy.multiply(max_vdiff,fadeArray),max_vdiff)
@@ -673,76 +641,6 @@ def clear_prof_data():
     global PROF_DATA
     PROF_DATA = {}
 
-    
-def get_null_result(artifactArray, artifactHeader, centerRow, centerCol, blockSize):
-    try:
-        print 'iteration'
-        grid = npy.indices((artifactArray.shape))
-        rowArray = grid[0]
-        colArray = grid[1]
-        del grid
-        sourceArray = circ(artifactArray, rowArray, colArray, centerRow, centerRow, options['radius'])
-           
-        resisArray = sourceArray.copy()
-        sourceArray = npy.where(sourceArray < 0, 0, sourceArray) 
-        targetArray = center_block(sourceArray, blockSize, centerRow, centerCol)                             
-        targetSum = targetArray.sum()
-        if options['useDistanceFunction'] and (options['maxDist'] or options['minDist'] or options['distEq'] is not None):
-            sourceArray = modify_source_strengths_by_distance(sourceArray, centerRow, centerCol, options)          
-
-        sourceArray = npy.where(targetArray > 0, 0, sourceArray)    
-        sourceSum = sourceArray.sum()
-        if options['centerGround']:
-            groundArray = npy.where(targetArray > 0, -9999, -9999) # fixme- replaces with zeros-9999 to speed up?
-            groundArray[centerRow, centerCol] = 0
-        else:
-            groundArray = npy.where(targetArray > 0, 10000000, -9999)
-
-        sourceAsciiFile = path.join(options['scratchDir'], 'source_artifact_BS'+str(blockSize)+'.asc') 
-        resisAsciiFile = path.join(options['scratchDir'], 'resis_artifact_BS'+str(blockSize)+'.asc') 
-        groundAsciiFile = path.join(options['scratchDir'], 'ground_artifact_BS'+str(blockSize)+'.asc') 
-
-        ascii_grid_writer(groundAsciiFile, groundArray, artifactHeader, options)
-        ascii_grid_writer(resisAsciiFile, resisArray, artifactHeader, options)
-        ascii_grid_writer(sourceAsciiFile, sourceArray, artifactHeader, options)
-        outputFN = 'target_r'+str(centerRow) + 'c' +str(centerCol) + '.out'#_curmap.asc'
-
-        outputFile = path.join(options['scratchDir'], outputFN)
-        csOptions = setCircuitscapeOptions(resisAsciiFile,sourceAsciiFile,groundAsciiFile,outputFile)
-        curMapPath, outConfigFile = calc_current(options, csOptions, centerRow, centerCol) 
-        if not path.exists(curMapPath):
-            print "Can't find circuitscape output"
-            raw_input('\nPress Enter to continue.') 
-            exit(0)
-            
-        currentArray = ascii_grid_reader(curMapPath, artifactHeader['nodata'], 'float64')
-
-        if options['weightTargOnly']:
-            multiplier = targetSum
-        elif options['noWeight']:
-            multiplier = 1
-        else:    
-            multiplier = sourceSum * targetSum  
-        print sourceSum, targetSum, multiplier
-        currentArray = currentArray * multiplier
-        
-        return currentArray
-    except arcpy.ExecuteError:
-        print_geoproc_error()
-    except:    
-        print_python_error()
-        
-def createArtifactHeader(options): 
-    nullHeader = {}
-    nullHeader['ncols'] = 2*options['radius']+1
-    nullHeader['nrows'] = 2*options['radius']+1
-    nullHeader['xllcorner'] = 1
-    nullHeader['yllcorner'] = 1
-    nullHeader['cellsize'] = 1
-    nullHeader['nodata'] = -9999 #if (nodata == False) else nodata 
-    return nullHeader
-    
-    
 def report_pct_done(current, goal, last):
     try:
         """Reports percent done"""
@@ -790,7 +688,7 @@ def calc_current(options, csOptions, centerRow, centerCol):
 
         curMapPath = path.join(options['scratchDir'], 'target_r'+str(centerRow) + 'c' +str(centerCol) + '_curmap.asc')
         # Adjust currents if some sources in different components than target block
-        print curMapPath
+        
         return curMapPath, outConfigFile
     except arcpy.ExecuteError:
         print_geoproc_error()
@@ -870,20 +768,10 @@ def get_raster_max(raster):
     except:    
         print_python_error()
 
-    
+@profile    
 def correctCurrents(currentArray, subsetCenterRow, subsetCenterCol, options, correctionArray):
-    try:   
-        #with just block:
-        # currentArrayBlock = currentArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2)+1,(subsetCenterCol-(options['blockSize']-1)/2):(subsetCenterCol+(options['blockSize']-1)/2+1)]
-        # currentArrayBlock = npy.multiply(currentArrayBlock,correctionArray)
-        # currentArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2)+1,(subsetCenterCol-(options['blockSize']-1)/2):(subsetCenterCol+(options['blockSize']-1)/2+1)] = currentArrayBlock
-        # return currentArray 
-        # currentArrayBlock = currentArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2)+1,(subsetCenterCol-(options['blockSize']-1)/2):(subsetCenterCol+(options['blockSize']-1)/2+1)]
-        
-        
-        
+    try:          
         currentArray = npy.multiply(currentArray,correctionArray)
-        # currentArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2)+1,(subsetCenterCol-(options['blockSize']-1)/2):(subsetCenterCol+(options['blockSize']-1)/2+1)] = currentArrayBlock
         return currentArray 
 
 
@@ -968,10 +856,10 @@ def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, 
     try:
         print 'Starting climate using PCs'
         start_timeClimate = time.clock()
-        t1PC1Array = circ(t1PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])              
-        t1PC2Array = circ(t1PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])              
-        t2PC1Array = circ(t2PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])              
-        t2PC2Array = circ(t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])              
+        t1PC1Array = circ(t1PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+        t1PC2Array = circ(t1PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+        t2PC1Array = circ(t2PC1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
+        t2PC2Array = circ(t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
         sourceArrayNew = npy.zeros(sourceArray.shape,dtype = 'float64')
         # targetArrayNew = npy.zeros(sourceArray.shape,dtype = 'float64')
         
@@ -1045,7 +933,7 @@ def match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray
         # Fixme: need to add a quick search for overall potential for matches within bands
         print 'Starting climate using temperature differential'
         start_timeClimate = time.clock()
-        climateArray = circ(climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])              
+        climateArray = circ(climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)              
         sourceArrayNew = npy.zeros(sourceArray.shape,dtype = 'float64')
         
         # indices of valid targets
@@ -1898,7 +1786,7 @@ def addData_arcpy(cumCurrentRaster, currentRaster):
     except:    
         print_python_error()
 
-        
+@profile
 def trim(array, centerRow, centerCol, nrows, ncols, options):
         radius = options['radius']
         startRow=startCol=0
@@ -1931,12 +1819,12 @@ def trim(array, centerRow, centerCol, nrows, ncols, options):
 
 
 @profile
-def circ(array, rowArray, colArray, centerRow, centerCol, radius):
+def circ(array, rowArray, colArray, centerRow, centerCol, options):
     try:
-        startRow = max(centerRow - radius,0)
-        endRow = min(centerRow + radius,array.shape[0]-1)
-        startCol = max(centerCol - radius,0)
-        endCol = min(centerCol + radius,array.shape[1]-1)
+        startRow = max(centerRow - options['radius'],0)
+        endRow = min(centerRow + options['radius'],array.shape[0]-1)
+        startCol = max(centerCol - options['radius'],0)
+        endCol = min(centerCol + options['radius'],array.shape[1]-1)
         colArraySmall = (colArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
         rowArraySmall = (rowArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
         arraySmall = array[startRow:endRow+1,startCol:endCol+1]
@@ -1944,10 +1832,7 @@ def circ(array, rowArray, colArray, centerRow, centerCol, radius):
         distArray = npy.sqrt(npy.multiply((rowArraySmall - centerRow), (rowArraySmall- centerRow)) + npy.multiply((colArraySmall-centerCol), (colArraySmall-centerCol))) #causes memory error
 
         del rowArraySmall,colArraySmall
-        print 'shapes'
-        print distArray.shape
-        print arraySmall.shape
-        arrayMasked = npy.where(distArray <= radius, arraySmall, -9999) #fixme do nans here
+        arrayMasked = npy.where(distArray <= options['radius'], arraySmall, -9999) #fixme do nans here
         gc.collect()
 
         return arrayMasked
@@ -1957,13 +1842,13 @@ def circ(array, rowArray, colArray, centerRow, centerCol, radius):
         print_python_error()
 
 # @profile        
-def center_block(array, blockSize, centerRow, centerCol):
+def center_block(array, options, centerRow, centerCol):
     try:
         # returns array of same shape as array (i.e. entire radius), but everything outside of center blkock is zero
-        startRow = centerRow - ((blockSize-1)/2)
-        endRow = centerRow + ((blockSize-1)/2)
-        startCol = centerCol - ((blockSize-1)/2)
-        endCol = centerCol + ((blockSize-1)/2)
+        startRow = centerRow - ((options['blockSize']-1)/2)
+        endRow = centerRow + ((options['blockSize']-1)/2)
+        startCol = centerCol - ((options['blockSize']-1)/2)
+        endCol = centerCol + ((options['blockSize']-1)/2)
         blockArray = npy.zeros(array.shape, dtype = 'float64')# - 9999  # replace -9999 with nan?  
         blockArray[startRow:endRow+1,startCol:endCol+1] = array[startRow:endRow+1,startCol:endCol+1]
         return blockArray            
