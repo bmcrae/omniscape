@@ -1,4 +1,4 @@
-projectDir = r'D:\Users\bmcrae\Duke_PNW_Omniscape\d8_omniscape' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
+projectDir = r'C:\Temp\pronghorn2_30m' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
 resisRasterBase = 'R_d8_clpF_180m.tif'
 blockSize=1
 

@@ -1,22 +1,20 @@
-# todo: taper off correction array
-
 tileNum = 0 # 0 to ignore. ONLY WORKS ON SERVERS. For running tiled bands to be stitched together later.
-numTiles = 8 # number of horizontal tiles to break into if tileNum > 0.
+numTiles = 4 # number of horizontal tiles to break into if tileNum > 0.
 #---------------------------------------------------------------------
 # INPUTS #
 #---------------------------------------------------------------------
 options = {}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 100# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 15 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['radius'] = 185# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['blockSize'] = 31 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
-options['projectDir'] = r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_Omniscape_1080m'#r'D:\Users\bmcrae\Duke_PNW_Omniscape\d8_omniscape' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
-options['resisRasterBase'] = 'rDraft7_1080mclip.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
-options['outputDirBase'] = 'correctionTestBS15'
+options['projectDir'] = r'D:\GIS_Data\bmcrae\Turner_Pronghorn\pronghorn1_270m' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'pronghorn_r_270m.tif'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
+options['outputDirBase'] = 'pronghorn1_270m_50km'
 
-options['useSourceRaster'] = False #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
-options['sourceRasterBase'] = 'te9x_sel82_sm_ones.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
+options['useSourceRaster'] = True #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
+options['sourceRasterBase'] = 'pronghorn_sources_270m.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
 options['sourceInverseR'] = False # Source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
@@ -30,7 +28,7 @@ options['squareRootInputs'] = False
 options['calcMaxCur'] = False #Note: this has more tiling/fading issues.
 
 # CLIMATE ####
-options['useClimate'] = False
+options['useClimate'] = True
 options['matchClimatePCs'] = True  # climate method- principle components if True, present-day temperature differences if False
 # parameters to match temperature differences
 options['tDiff'] = 4 # Match pixels that differ in temperature by this value
@@ -80,11 +78,11 @@ options['endStripe'] = 0
 
                                                               
 # VOLTAGES #### Note: code not complete yet!
-options['calcVoltages'] = True
+options['calcVoltages'] = False
 options['adjustVoltages'] = False
 
 # TARGETS AND WEIGHTING ####
-options['weightTargOnly'] = True # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
+options['weightTargOnly'] = False # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
 # Recommend not changing following
 options['noWeight'] = False # Recommend False. 
 options['centerGround'] = True# Recommend True.
@@ -92,16 +90,17 @@ options['negTargets'] = False # Recommend False. negative sources at targets- bl
 
 
 # FADE CURRENTS #FIXME: check out divide by zero in fade calc
-options['fadeIn'] = False# Decreases current from each solve linearly with distance to center. Helps with affects of blocks. Best with center ground.
+options['fadeIn'] = False# RECOMMEND FALSE. Use removeArtifacts instead. Decreases current from each solve linearly with distance to center. Helps with affects of blocks. Best with center ground.
 from math import *
 options['fadeInDist'] = (options['blockSize'])#(options['blockSize'])#-1)/2#/4.0#sqrt(2)*(options['blockSize']/2.0)#options['radius']/2 #
 options['fadeConstant'] = 0.5 # Constant added to numerator and denominator in fade equation. Avoids zero current at center ground. Higher values mean more current at ground 
-options['setKernelMean'] = True
+options['setKernelMean'] = False
 
-options['removeArtifacts'] = True
+options['removeArtifacts'] = True #Recommend TRUE if blocksize > 1
 
 # Quantilize maps ####
-options['quantilizeMaps'] = True # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
+options['quantilizeMaps'] = True
+ # Additional current map will be written with values binned by quantile (e.g., 0-100 with 100 quantiles). Makes display easier (just use min-max stretch).
 options['numQuantiles'] = 100
 
 # SPECIAL FUNCTIONS
@@ -162,38 +161,7 @@ def omniscape(options):
         
         #FIXME: check correction arrays, especially positioning
         if options['calcCurrent'] and options['removeArtifacts']:
-            print 'Calculating null results to remove artifacts'
-            artifactArray = npy.ones((2*options['radius']+1,2*options['radius']+1),dtype = 'int32')
-            artifactHeader = createArtifactHeader(options)
-
-            subsetCenterRow = centerRow =subsetCenterCol=centerCol= options['radius']
-            artifactBS1Result = get_null_result(artifactArray, artifactHeader, subsetCenterRow, subsetCenterCol, blockSize = 1)
-            artifactBSXResult = get_null_result(artifactArray, artifactHeader, subsetCenterRow, subsetCenterCol, blockSize = options['blockSize'])
-            # then create larger grid, add in XxX nullBS1Result results
-#FIXME CHECK:            
-            artifactBS1SumArray = npy.zeros((2*options['radius']+options['blockSize']+1,2*options['radius']+options['blockSize']+1),dtype = 'float64')
-            for centerRow in range(options['radius'], options['radius']+options['blockSize']): 
-                for centerCol in range(options['radius'], options['radius']+options['blockSize']):
-                    artifactBS1SumArray = addData(artifactBS1SumArray, artifactBS1Result, centerRow, centerCol, options)
-
-            centerArtifactBS1SumArray = artifactBS1SumArray[(options['blockSize']-1)/2:2*options['radius']+(options['blockSize']-1)/2+1,(options['blockSize']-1)/2:2*options['radius']+(options['blockSize']-1)/2+1]
-            # print centerArtifactBS1SumArray
-            correctionArray = npy.where(artifactBSXResult>0,npy.divide(centerArtifactBS1SumArray,artifactBSXResult),0)
-            # print correctionArray
-
-            grid = npy.indices((correctionArray.shape))
-            subsetRowArray = grid[0]
-            subsetColArray = grid[1]
-            del grid
-            subsetDistArray = npy.sqrt(npy.multiply(subsetRowArray - subsetCenterRow, subsetRowArray- subsetCenterRow) + npy.multiply(subsetColArray-subsetCenterCol, subsetColArray-subsetCenterCol))           
-
-            correctionArray = npy.where(subsetDistArray > 9*options['radius']/10,1,correctionArray)
-            del subsetDistArray
-            
-            correctionFile = path.join(options['scratchDir'], 'correction.asc')
-            ascii_grid_writer(correctionFile, correctionArray, artifactHeader, options)
-
-
+            correctionArray = create_correction_array(options)
 
         # if options['removeArtifacts']:
             # correctionArray = arcpy.RasterToNumPyArray(os.path.join(options['projectDir'],'div3.tif'),"#","#","#",-9999)
@@ -672,6 +640,40 @@ def clear_prof_data():
     global PROF_DATA
     PROF_DATA = {}
 
+def create_correction_array(options):
+    print 'Calculating null results to remove artifacts'
+    artifactArray = npy.ones((2*options['radius']+1,2*options['radius']+1),dtype = 'float64')
+    artifactHeader = createArtifactHeader(options)
+
+    subsetCenterRow = centerRow =subsetCenterCol=centerCol= options['radius']
+    artifactBS1Result = get_null_result(artifactArray, artifactHeader, subsetCenterRow, subsetCenterCol, blockSize = 1)
+    artifactBSXResult = get_null_result(artifactArray, artifactHeader, subsetCenterRow, subsetCenterCol, blockSize = options['blockSize'])
+    # then create larger grid, add in XxX nullBS1Result results
+#FIXME CHECK:            
+    artifactBS1SumArray = npy.zeros((2*options['radius']+options['blockSize']+1,2*options['radius']+options['blockSize']+1),dtype = 'float64')
+    for centerRow in range(options['radius'], options['radius']+options['blockSize']): 
+        for centerCol in range(options['radius'], options['radius']+options['blockSize']):
+            artifactBS1SumArray = addData(artifactBS1SumArray, artifactBS1Result, centerRow, centerCol, options)
+
+    centerArtifactBS1SumArray = artifactBS1SumArray[(options['blockSize']-1)/2:2*options['radius']+(options['blockSize']-1)/2+1,(options['blockSize']-1)/2:2*options['radius']+(options['blockSize']-1)/2+1]
+    # print centerArtifactBS1SumArray
+    artifactBSXResult = npy.where(artifactBSXResult == 0, 1, artifactBSXResult)
+    correctionArray = npy.divide(centerArtifactBS1SumArray,artifactBSXResult)
+    # print correctionArray
+
+    grid = npy.indices((correctionArray.shape))
+    subsetRowArray = grid[0]
+    subsetColArray = grid[1]
+    del grid
+    subsetDistArray = npy.sqrt(npy.multiply(subsetRowArray - subsetCenterRow, subsetRowArray- subsetCenterRow) + npy.multiply(subsetColArray-subsetCenterCol, subsetColArray-subsetCenterCol))           
+
+    correctionArray = npy.where(subsetDistArray > 9*options['radius']/10,1,correctionArray)
+    del subsetDistArray
+
+    #fixme: not needed:
+    correctionFile = path.join(options['scratchDir'], 'correction.asc')
+    ascii_grid_writer(correctionFile, correctionArray, artifactHeader, options)
+    return correctionArray
     
 def get_null_result(artifactArray, artifactHeader, centerRow, centerCol, blockSize):
     try:
@@ -718,7 +720,7 @@ def get_null_result(artifactArray, artifactHeader, centerRow, centerCol, blockSi
         if options['weightTargOnly']:
             multiplier = targetSum
         elif options['noWeight']:
-            multiplier = 1
+            multiplier = 1.0
         else:    
             multiplier = sourceSum * targetSum  
         print sourceSum, targetSum, multiplier
@@ -1570,7 +1572,11 @@ def set_options_and_dirs(options):
             negTargText = 'negTarg'
         else:
             negTargText = ''
-
+            
+        if options['removeArtifacts']:
+            options['fadeIn'] = False
+            if options['blockSize'] == 1:
+                options['removeArtifacts'] = False
         if options['fadeIn']:
             fadeInText = '_f'+str(int(options['fadeInDist']))
         else:
@@ -1602,7 +1608,7 @@ def set_options_and_dirs(options):
             if options['distEq'] is not None:
                 distFunctionText = distFunctionText + '_distFn'
         if options['weightTargOnly']:
-            weightText = '_targOnly'
+            weightText = '_to'
         else:
             weightText = ''
         if options['centerGround']:
@@ -1644,7 +1650,7 @@ def set_options_and_dirs(options):
                 cutoffText = '_rc'+str(options['rCutoff'])
         else:
             cutoffText = ''
-        options['outputFileText'] = nullText+resisRasText + squareText + limText + '_' + srcText+climText+radiusText+'b'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+maxText+startBandText+endBandText+startStripeText+endStripeText+negTargText+fadeInText
+        options['outputFileText'] = nullText+resisRasText + squareText + limText + '_' + srcText+climText+radiusText+'b'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+maxText+negTargText+fadeInText+startBandText+endBandText+startStripeText+endStripeText
         options['prevFlowFile'] = None
         options['prevCumCurrentFile'] = None
         options['prevVdiffFile'] = None
@@ -1844,11 +1850,13 @@ def band(inRaster,header,centerRow, options):
         LLC = arcpy.Point(header['xllcorner'],yMin)
         bandArray = arcpy.RasterToNumPyArray(inRaster,LLC,"#",bandRows,-9999)  
         if bandArray.shape[1] > header['ncols']: #FIXME: temp fix because random raster yields bands that are 1 too long for some reason      
-            print'Band array is too long'
-            print 'ncols',header['ncols']
-            print 'shape',bandArray.shape[1]
-            print 'last col min,max', npy.min(bandArray[:,header['ncols']]), npy.max(bandArray[:,header['ncols']])
-            print 'Col 0 min,max', npy.min(bandArray[:,0]), npy.max(bandArray[:,0])
+            print'Correcting band array shape.'
+            # print 'ncols',header['ncols']
+            # print 'shape',bandArray.shape[1]
+            if npy.max(bandArray[:,header['ncols']]) > 0:
+                print 'Last col max value:', npy.max(bandArray[:,header['ncols']])
+            if npy.max(bandArray[:,0]) > 0:
+                print 'First col max value', npy.max(bandArray[:,0])
             # bandArray = bandArray[:,1:header['ncols']] #CHANGED BHM 12/15/15
             bandArray = bandArray[:,1:bandArray.shape[1]] #CHANGED BHM 12/15/15  
         return bandArray

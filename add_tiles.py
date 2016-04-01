@@ -1,16 +1,10 @@
-
-options['projectDir'] = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape\d8_omniscape'#'D:\Users\bmcrae\Duke_PNW_Omniscape\d8_omniscape' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
-options['resisRasterBase'] = 'R_d8_clpF_180m.tif'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
-options['outputDirBase'] = 'd8_50km_correct'
-
-
 projectDir = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape\d8_omniscape'# this is where all the input data are, and where out directory will be created.
 
 inputDirBase = 'd8_50km_correct'#'d6_540m_100km_5Lim'
 outputDirBase = inputDirBase + 'AddedRasters'
 numQuantiles=100
 extractMask =r'C:\DATADRIVE\DUKE_PNW_DATA\CIRCUITSCAPE_RESISTANCES_DUKE_PNW_CA\DUKE_FINAL_RESIS_RASTERS\PNW_study_area_poly_BHM.shp' #None to ignore, otherwise will cip to this
-tasks = ['cur','volt']
+tasks = ['cur']#['cur','volt']
     
 import os
 import shutil
@@ -61,11 +55,11 @@ def mosaic():
                 count=count+1
                 if count==1:
                     print 'rasterPath is ',rasterPath
-                    fn=re.sub(r'_SB\w+_f', '_f', fn)
+                    fn=re.sub(r'_SB\w+.', '.', fn)
                     mosFN = 'a'+fn.replace('.','')
                     outRaster = outputDir+'\\'+mosFN+'.tif'
                     delete_data(outRaster)
-                    clipRaster = outputDir+'\\f'+mosFN+'clp.tif'         
+                    clipRaster = outputDir+'\\f'+mosFN+'_clp.tif'         
                     delete_data(clipRaster)
                     expression = rasterPath
                 else:
@@ -88,7 +82,7 @@ def mosaic():
         
         if extractMask is not None:
             print "Extracting by mask file"
-            extractRasFN = mosFN+'clp.tif'
+            extractRasFN = mosFN+'_clp.tif'
             extractRasPath =os.path.join(outputDir,extractRasFN)
             outRas = arcpy.sa.ExtractByMask(os.path.join(outputDir,mosFN+'.tif'), extractMask)
             outRas.save(extractRasPath)
