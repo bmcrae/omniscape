@@ -1041,29 +1041,40 @@ def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, 
 @profile
 def match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options):                
     try:
-        # Fixme: need to add a quick search for overall potential for matches within bands
-        print 'Starting climate using temperature differential'
+        # Fixme: need to add a quick search for overall potential for matches within bands and within circles. 
+        # But maxAllowableTargetT check is fast enough for now.
+        print 'Starting climate using temperature differential3'
+
         start_timeClimate = time.clock()
         climateArray = circ(climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])              
+        maxT = npy.max(climateArray)
+        maxAllowableTargetT = maxT - (options['tDiff'] - options['tWindow'] )
+
+        climateArray = npy.where(climateArray == -9999, npy.nan, climateArray)
         sourceArrayNew = npy.zeros(sourceArray.shape,dtype = 'float64')
         
-        # indices of valid targets
-        tRows, tCols = npy.where(targetArray)
+        #Having trouble with & in where, so resorting to brute force:
+        validTargets=npy.where(targetArray!=0,1,0)
+        validClimates=npy.where (climateArray <= maxAllowableTargetT,1,0)
+       
+        validTargetClimates = npy.multiply(validTargets,validClimates)
+        targetArray =npy.multiply(validTargetClimates,targetArray) # to get proper target sum later
+        
+        tRows, tCols = npy.where(validTargetClimates)
+        
         if len(sourceArray) < 10:
             print 'clim'
             print climateArray
         targetTally = 0
         for i in range(0,len(tRows)):
-            tTarget = climateArray[tRows[i],tCols[i]] 
-            if tTarget == -9999:
-                targetArray[tRows[i],tCols[i]] = 0
-                continue
-            tDiffArray = npy.where(climateArray == -9999, 0, climateArray-tTarget) #target is cooler. # fixme- could save a bit of time by removing where- maybe could just mask outinvalid- or uses nans, or remove -999 values later
+            tTarget = climateArray[tRows[i],tCols[i]]            
+            tDiffArray = climateArray-tTarget #target is cooler.
            
             if options['absClim']:
                 tCutoffArray = npy.where((abs(tDiffArray)>= options['tDiff']-options['tWindow']) & (abs(tDiffArray)<= options['tDiff']+options['tWindow']),1,0)
             else:
-                tCutoffArray = npy.where((tDiffArray>= options['tDiff']-options['tWindow']) & (tDiffArray<= options['tDiff']+options['tWindow']),1,0) 
+                #fixme: invalid comparison warning due to nans. but result is still correct and where() would be too time consuming. Does this need fixing? Probably not.
+                tCutoffArray = npy.where((tDiffArray >= options['tDiff']-options['tWindow']) & (tDiffArray <= options['tDiff']+options['tWindow']),1,0) 
             if len(sourceArray) < 10:
                 print 'tCutoffArray'
                 print tCutoffArray
@@ -1087,11 +1098,11 @@ def match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray
             print sourceArrayNew
             print 'target new'
             print targetArray
-        sourceArray = sourceArrayNew
+        sourceArray = npy.where(sourceArrayNew == npy.nan,0,sourceArrayNew)
         del sourceArrayNew
         sourceSum = sourceArray.sum()
         targetSum = targetArray.sum()
-        print 'targetTally',targetTally
+
         # Note that we now have identical source sums and targetsums
         start_timeClimate = elapsed_time(start_timeClimate) #Fixme: can climate be sped up? Taking up to 1 second with blocksize 25, radius 100           
         return sourceArray, targetArray, sourceSum, targetSum, targetTally
