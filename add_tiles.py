@@ -7,6 +7,7 @@ extractMask =r'C:\DATADRIVE\DUKE_PNW_DATA\CIRCUITSCAPE_RESISTANCES_DUKE_PNW_CA\D
 tasks = ['cur']#['cur','volt']
     
 import os
+import glob
 import shutil
 import re
 import arcpy
@@ -69,6 +70,13 @@ def mosaic():
         # expression = (expression + " + " + cwdRaster2 + " - " 
                       # + lcDist)
 
+                      
+        print 'Copying Python files from input to output directory:'
+        for file in glob.glob(os.path.join(inputDir,'*.py')):
+            print file                                                                                                                                        
+            shutil.copy(file, outputDir)        
+        
+        
         print "Adding:"
         print expression
         print 'to:'

@@ -1,3 +1,12 @@
+need nanmax
+Fix brightbug for sources and targets
+
+# 4/19/16
+# major problem: climate and non-climate differ for TO and Non-TO when have source ras
+# climate not designed for source ras. uses target tally
+# need to have a target tally that acts like target sum. 
+
+# Add text for artifact correction
 tileNum = 0 # 0 to ignore. ONLY WORKS ON SERVERS. For running tiled bands to be stitched together later.
 numTiles = 4 # number of horizontal tiles to break into if tileNum > 0.
 #---------------------------------------------------------------------
@@ -6,16 +15,16 @@ numTiles = 4 # number of horizontal tiles to break into if tileNum > 0.
 options = {}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 185# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 31 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['radius'] = 50# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['blockSize'] = 5 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
-options['projectDir'] = r'D:\GIS_Data\bmcrae\Turner_Pronghorn\pronghorn1_270m' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
-options['resisRasterBase'] = 'pronghorn_r_270m.tif'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
-options['outputDirBase'] = 'pronghorn1_270m_50km'
+options['projectDir'] = r'C:\Temp\MIRANDA' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'test_resistance_x10k_USGS.tif'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
+options['outputDirBase'] = 'MirandaTest1'
 
 options['useSourceRaster'] = True #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
-options['sourceRasterBase'] = 'pronghorn_sources_270m.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
-options['sourceInverseR'] = False # Source strengths are inverse of input resistances (before squaring)
+options['sourceRasterBase'] = 'test_source_USGS.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
+options['sourceInverseR'] = False # If NOT using source raster, source strengths are inverse of input resistances (before squaring)
 
 # RESISTANCES AND CUTOFF VALUES ####
 options['rCutoff'] = 100# If NOT using a source raster, everything <= this value in the ORIGINAL resistance raster will be a source (before squaring if squareResistances is True)
@@ -28,7 +37,7 @@ options['squareRootInputs'] = False
 options['calcMaxCur'] = False #Note: this has more tiling/fading issues.
 
 # CLIMATE ####
-options['useClimate'] = True
+options['useClimate'] = False
 options['matchClimatePCs'] = True  # climate method- principle components if True, present-day temperature differences if False
 # parameters to match temperature differences
 options['tDiff'] = 4 # Match pixels that differ in temperature by this value
@@ -66,10 +75,6 @@ options['calcCurrent'] = True
 # OPTION TO LIMIT ANALYSIS EXTENT ####  
 # Bands are horizontal, with width equal to blockSize. There are approx nrows/blockSize bands in a raster. Stripes are vertical, with width equal to blocksize.
 # These options allow you to only process a subset of bands and stripes. 
-# options['startBand'] = 2675# First band to process. Use 0 to ignore.
-# options['endBand'] = 2675# # Stops after processing this band. Use 0 to ignore.
-# options['startStripe'] = 2227 # First stripe to process. Use 0 to ignore.
-# options['endStripe'] = 2227 # Stops after processing this stripe. 0 to ignore.
 options['startBand'] = 0#4#16#4# First band to process. Use 0 to ignore.
 options['endBand'] = 0#15# # Stops after processing this band. Use 0 to ignore.
 options['startStripe'] = 0 # First stripe to process. Use 0 to ignore.
@@ -82,7 +87,7 @@ options['calcVoltages'] = False
 options['adjustVoltages'] = False
 
 # TARGETS AND WEIGHTING ####
-options['weightTargOnly'] = False # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
+options['weightTargOnly'] = True # Total current flow is ~ ntargs. May make sense if # dispersers limited, or number of dispersers a pixel can accept is limited. If false and noweight is false, current flow will be ~ntargs*nsources
 # Recommend not changing following
 options['noWeight'] = False # Recommend False. 
 options['centerGround'] = True# Recommend True.
@@ -106,7 +111,7 @@ options['numQuantiles'] = 100
 # SPECIAL FUNCTIONS
 options['calcNull'] = False # Calculates a 'null' result with all resistances = 1. 
 options['calcFANull'] = False
-options['saveSourceAndTargetCounts'] = False # #Save source and target counts when doing climate analyses
+options['saveSourceAndTargetCounts'] = False # #Save source and target counts. Only tested when doing CLIMATE analyses. Need to update code just before adddata to accommodate non-climate source and target sums and target weights.
 options['doSourceAndTargetCountsOnly'] = False # if saving counts, DON'T calculate current
 options['printTimings'] = True
 
@@ -118,9 +123,12 @@ options['cleanUpBandFiles'] = True
 #---------------------------------------------------------------------
 if tileNum > 0:
     print 'Tiling with ' + str(numTiles) + ' tiles. Running tile #' + str(tileNum) + ' in this instance.'
-    print 'Any manually set start and end bands will be ignored.'
-
-
+    print 'Any manually set start and end BANDS will be ignored.'
+if not options['removeArtifacts']:
+    print '*** Not removing artifacts ***'
+if options['calcNull']:
+        print'** Calculating NULL **'
+        
 from functools import wraps
 PROF_DATA = {}
 import arcgisscripting
@@ -141,6 +149,7 @@ import shutil
 import glob
 # from lm_retry_decorator import retry
 
+npy.seterr(invalid='ignore')
 arcpy.CheckOutExtension("Spatial")
 arcpy.env.overwriteOutput = True
 
@@ -357,12 +366,16 @@ def omniscape(options):
                         sourceArray, targetArray, sourceSum, targetSum, targetTally = match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, t2PC1BandArray, t2PC2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)                
                     else:
                         sourceArray, targetArray, sourceSum, targetSum, targetTally = match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options)                
+                        print 'targettally', targetTally  
                 if sourceSum == 0 or targetSum == 0:
                     continue 
                         
                 circleHeader = get_subset_header(sourceArray, header, options, centerRow, centerCol)
                 yMin = circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
                 if options['saveSourceAndTargetCounts']:# and options['useClimate']:
+                    if options['weightTargOnly'] and options['useClimate']: #Wanting to write what actual flow is from each source to each targ
+                        targetArray = targetArray*(targetTally/(targetSum+0.0))
+                        sourceArray = sourceArray*(targetTally/(targetSum+0.0))
                     cumSourceArray = addData(cumSourceArray, sourceArray, subsetCenterRow, centerCol, options)
                     cumTargetArray = addData(cumTargetArray, targetArray, subsetCenterRow, centerCol, options)
                     if options['doSourceAndTargetCountsOnly']:
@@ -466,11 +479,11 @@ def omniscape(options):
                         
                 if options['weightTargOnly']:
                     if options['useClimate']:
-                        multiplier = targetTally 
+                        multiplier = targetTally #FIXME: Does this mean we can't scale by source strength? A: Not as of 4/20/16
                     else:
-                        multiplier = targetSum
+                        multiplier = targetSum 
                 elif options['useClimate']:
-                    multiplier = targetSum
+                    multiplier = targetSum # FIXME: why not sourcesum * targetsum? A: I think these are equal now and reflect ss*ts value from match temp diffs code
                 elif options['noWeight']:
                     multiplier = 1
                 else:    
@@ -556,10 +569,21 @@ def omniscape(options):
                 yMin = max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - centerRow - options['radius'] - 1) * header['cellsize']))
                 LLC = arcpy.Point(header['xllcorner'],yMin)
                 bandSourceRaster = arcpy.NumPyArrayToRaster(cumSourceArray,LLC, header['cellsize'],header['cellsize'],-9999)
+                
+                # SAVING BAND RASTER REMOVES OCCASIONAL HORIZONTAL STRIPING
+                tempBandFile = os.path.join(options['scratchDir'], 'justBAND'+str(bandNum)+'src_' + options['outputFileText']+'.tif')
+                bandSourceRaster.save(tempBandFile)
+                delete_data(tempBandFile)
+                
                 cumSourceRaster = addData_arcpy(cumSourceRaster, bandSourceRaster)       
-            
+
                 del cumSourceArray, bandSourceRaster
+                
                 bandTargetRaster = arcpy.NumPyArrayToRaster(cumTargetArray,LLC, header['cellsize'],header['cellsize'],-9999)
+                # SAVING BAND RASTER REMOVES OCCASIONAL HORIZONTAL STRIPING
+                tempBandFile = os.path.join(options['scratchDir'], 'justBAND'+str(bandNum)+'targ_' + options['outputFileText']+'.tif')
+                bandTargetRaster.save(tempBandFile)
+                delete_data(tempBandFile)
                 cumTargetRaster = addData_arcpy(cumTargetRaster, bandTargetRaster)       
                 del cumTargetArray, bandTargetRaster
             
@@ -583,6 +607,12 @@ def omniscape(options):
                     del bandCurrentRaster,cumCurrentArray
                     if options['calcVoltages']:
                         bandVdiffRaster = arcpy.NumPyArrayToRaster(cumVdiffArray,LLC,header['cellsize'],header['cellsize'],-9999)
+
+                        # SAVING BAND RASTER REMOVES OCCASIONAL HORIZONTAL STRIPING
+                        tempBandFile = os.path.join(options['scratchDir'], 'justBAND'+str(bandNum)+'v_' + options['outputFileText']+'.tif')
+                        bandVdiffRaster.save(tempBandFile)
+                        delete_data(tempBandFile)
+
                         cumVdiffRaster = addData_arcpy(cumVdiffRaster, bandVdiffRaster)
                         del cumVdiffArray, bandVdiffRaster
                   
@@ -1005,8 +1035,8 @@ def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, 
                 print PCCutoffArray
             sourceArrayTarget_i = npy.multiply(sourceArray,PCCutoffArray)# sources for this target cell
             if npy.max(sourceArrayTarget_i)>0:
-                targetTally+= 1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
-            
+                # targetTally+= 1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
+                targetTally += targetArray[tRows[i],tCols[i]] # fixme: is this waht is needed for XTO bug? then multiply sourcesum by this?
             # For climate, may have more or fewer targets. Need to scale sources by ntargs, and targets by nsources
             sourceArrayNew = sourceArrayNew+sourceArrayTarget_i
             
@@ -1028,7 +1058,6 @@ def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, 
         del sourceArrayNew
         sourceSum = sourceArray.sum()
         targetSum = targetArray.sum() 
-        #xprint 'targetTally',targetTally
         # Note that we now have identical source sums and targetsums
         start_timeClimate = elapsed_time(start_timeClimate) #Fixme: can climate be sped up? Taking up to 1 second with blocksize 25, radius 100           
 
@@ -1043,7 +1072,7 @@ def match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray
     try:
         # Fixme: need to add a quick search for overall potential for matches within bands and within circles. 
         # But maxAllowableTargetT check is fast enough for now.
-        print 'Starting climate using temperature differential3'
+        print 'Starting climate using temperature differential'
 
         start_timeClimate = time.clock()
         climateArray = circ(climateBandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])              
@@ -1080,7 +1109,10 @@ def match_temperature_diffs(sourceArray, targetArray, climateBandArray, rowArray
                 print tCutoffArray
             sourceArrayTarget_i = npy.multiply(sourceArray,tCutoffArray)# sources for this target cell
             if npy.max(sourceArrayTarget_i)>0:
-                targetTally+= 1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
+                # targetTally+= 1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
+                targetTally += targetArray[tRows[i],tCols[i]] # fixme: is this waht is needed for XTO bug? then multiply sourcesum by this?
+# FIXME: Possible problem here. Target strength/quality only comes in later when targetTally is invoked to scale total current.
+# So quality of non-zero-weight targets basically averaged over block.
             
             # For climate, may have more or fewer targets. Need to scale sources by ntargs, and targets by nsources
             sourceArrayNew = sourceArrayNew+sourceArrayTarget_i
@@ -1474,7 +1506,8 @@ def set_options_and_dirs(options):
                 print 'Error: tile number (tileNum) cannot be higher than number of tiles (numTiles).'
                 raw_input('\nPress Enter to continue.') 
                 exit(0)    
-
+            options['startStripe'] = 0 # First stripe to process. Use 0 to ignore.
+            options['endStripe'] = 0
             resisRaster = path.join(options['projectDir'],options['resisRasterBase'])
             header = get_header(resisRaster)
             approxEndBand = int(header['nrows']/options['blockSize'])+1   
@@ -1588,6 +1621,9 @@ def set_options_and_dirs(options):
             options['fadeIn'] = False
             if options['blockSize'] == 1:
                 options['removeArtifacts'] = False
+            artifactText = '_ac'
+        else:
+            artifactText = ''        
         if options['fadeIn']:
             fadeInText = '_f'+str(int(options['fadeInDist']))
         else:
@@ -1619,11 +1655,11 @@ def set_options_and_dirs(options):
             if options['distEq'] is not None:
                 distFunctionText = distFunctionText + '_distFn'
         if options['weightTargOnly']:
-            weightText = '_to'
+            weightText = '_TO'
         else:
             weightText = ''
         if options['centerGround']:
-            centerText = 'cg'
+            centerText = '_cg'
         else:
             centerText = ''
         
@@ -1632,7 +1668,7 @@ def set_options_and_dirs(options):
         else:
             maxText = ''
         if options['noWeight']:
-            noWeightText = 'noWeight'
+            noWeightText = '_noWeight'
         else:
             noWeightText = ''
 
@@ -1642,7 +1678,7 @@ def set_options_and_dirs(options):
                 fileBase,ext = os.path.splitext(options['climateRasterBase'])
                 if len(fileBase)>15:
                     fileBase = fileBase[0:14]+'x'
-                climText = 'clim_tc_'+str(options['tDiff']).replace('.','')+'_'+fileBase
+                climText = 'clim_tc'+str(options['tDiff']).replace('.','')+'_tw'+str(options['tWindow']).replace('.','')+'_'+fileBase
                 if options['absClim']:
                     climText = climText+'_abs'
             else:
@@ -1661,7 +1697,7 @@ def set_options_and_dirs(options):
                 cutoffText = '_rc'+str(options['rCutoff'])
         else:
             cutoffText = ''
-        options['outputFileText'] = nullText+resisRasText + squareText + limText + '_' + srcText+climText+radiusText+'b'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+maxText+negTargText+fadeInText+startBandText+endBandText+startStripeText+endStripeText
+        options['outputFileText'] = nullText+resisRasText + squareText + limText + '_' + srcText+climText+radiusText+'b'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+maxText+negTargText+fadeInText+artifactText+startBandText+endBandText+startStripeText+endStripeText
         options['prevFlowFile'] = None
         options['prevCumCurrentFile'] = None
         options['prevVdiffFile'] = None
