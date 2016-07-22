@@ -1,3 +1,15 @@
+Analysis:
+1.	Days per month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+2.	Deficit1 = 0
+3.	Capacity0 = jan_t2
+4.	Capacityt = Capacityt-1 + jan_t2
+a.	If <0, then Deficitt = Deficitt-1 + Capacityt
+b.	THEN set Capacityt = 0.
+c.	If >110, then 110.
+
+
+
+
 projectDir = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape\d8_omniscape'# this is where all the input data are, and where out directory will be created.
 
 inputDirBase = 'd8_50km_correct'#'d6_540m_100km_5Lim'
@@ -51,7 +63,7 @@ def mosaic():
         for f in os.listdir(tileDir):
             fn,ext = os.path.splitext(f)
                 
-            if ext == '.tif' and '_SB' in fn and '_PCT' not in fn and ((fn[0]=='v' and task == 'volt') or (fn[0]=='c' and task == 'cur') or (fn[0]=='z' and task == 'flow')):
+            if ext == '.tif' and '_SB' in fn and '_PCT' not in fn and ((fn[0]=='v' and task == 'volt') or (fn[0]=='c' and task == 'cur') or (fn[0]=='z' and task == 'flow') or (fn[0]=='s' and task == 'sources') or (fn[0]=='t' and task == 'targets')):
                 rasterPath= os.path.join(tileDir,f)
                 count=count+1
                 if count==1:

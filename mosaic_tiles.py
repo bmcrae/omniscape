@@ -1,4 +1,9 @@
-compare d6 and d7
+new mosaic code
+take all 'cur' files, add them
+clip
+
+
+
 Need to quantify regional flow. 
     look at 10km 20km focal stats.
 

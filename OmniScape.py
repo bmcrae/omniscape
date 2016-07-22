@@ -1,5 +1,8 @@
-need nanmax
-Fix brightbug for sources and targets
+# need nanmax
+# Fix brightbug for sources and targets
+# To eliminate arcpy, challenges are:
+# 1) size of grids- manipulating and accumulating massive ones. 
+# 2) cost distance and flow accumulation
 
 # 4/19/16
 # major problem: climate and non-climate differ for TO and Non-TO when have source ras
@@ -2052,9 +2055,14 @@ def get_cs_path():
             try:
                 pfPath = os.environ[envList[x]]
                 csPath = os.path.join(pfPath,'Circuitscape\\cs_run.exe')
-                if os.path.exists(csPath): return csPath
+                if os.path.exists(csPath): 
+                    return csPath
+                else:
+                    csPath = 'D:\\Program Files\\Circuitscape\\cs_run.exe'
+                    if os.path.exists(csPath): return csPath
             except: pass
-        return 'D:\\Program Files\\Circuitscape\\cs_run.exe'
+        return 'E:\\Program Files\\Circuitscape\\cs_run.exe'
+		
     except arcpy.ExecuteError:
         print_geoproc_error()
     except:    
