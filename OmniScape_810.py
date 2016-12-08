@@ -1,5 +1,4 @@
-# Artifact correction for voltage maps?
-# some kind of improvement score?
+# add run title?
 
 # if mask
 # set extent to mask before running tiles, clip and mask out resis and source
@@ -9,8 +8,10 @@
 # To eliminate arcpy, challenges are:
 # 1) size of grids- manipulating and accumulating massive ones. 
 # 2) cost distance and flow accumulation
-#  Add text for artifact correction
-tileNum = 0 # 0 to ignore. ONLY WORKS ON SERVERS. For running tiled bands to be stitched together later.
+
+
+# Add text for artifact correction
+tileNum = 1 # 0 to ignore. ONLY WORKS ON SERVERS. For running tiled bands to be stitched together later.
 numTiles = 10 # number of horizontal tiles to break into if tileNum > 0.
 #---------------------------------------------------------------------
 # INPUTS #
@@ -18,20 +19,21 @@ numTiles = 10 # number of horizontal tiles to break into if tileNum > 0.
 options = {}
 
 # MOVING WINDOW AND TARGET BLOCK SIZES ####
-options['radius'] = 2# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
-options['blockSize'] = 1 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
+options['radius'] = 62# In PIXELS. Search radius, with sources activated within the radius and outside of the center (target) block.
+options['blockSize'] = 5 # Odd number. Targets will be square blocks of pixels with this number of pixels on a side.
 
-options['runTitle'] = 'rHMp10_s1minusHM_90m'
 
-options['projectDir'] = r'c:\md' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
-options['resisRasterBase'] = 'resistances.asc'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
-options['outputDirBase'] = 'rHMp10_s1minusHM_90m'
+options['projectDir'] = r'E:\Users\bmcrae\CA_CONNECTIVITY\HM_2016_0811' #r'C:\DATADRIVE\DUKE_PNW_DATA\PNW_OmniScape'# this is where all the input data are, and where out directory will be created.
+options['resisRasterBase'] = 'Hm_TNCCAw30_20160810_alb1_810_Q1000_Pow10.tif'#'ones_oly.tif'#'rNullFadeTestClip2.tif'#'ones.tif'#
 
-options['useSourceRaster'] = False #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
-options['sourceRasterBase'] = 's1minusHM_90m.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
+options['runTitle'] = 'rHMp10_s1minusHM_810m'
+options['outputDirBase'] = 'rHMp10_s1minusHM_810m'
+
+options['useSourceRaster'] = True #Use a layer specifying source/target pixels to connect. 0 = no source, anything positive will indicate strength of a source at that pixel. If not using a separate source raster, will use r Cutoff and consider anything with resistance lower than this to be a source/target
+options['sourceRasterBase'] = 's1minusHM_810m.tif'#'DUKE_CIRCUITSCAPE_resistances_draft4_Habitat_min_540m_clip.tif'#'srcInvR.tif'# Name of source raster, if using one
 options['sourceInverseR'] = False # If NOT using source raster, source strengths are inverse of input resistances (before squaring)
 
-options['useMask'] = False
+options['useMask'] = True
 options['maskRasterBase'] = 'eastBay_southCoast_testAreas50km.tif'
 
 # RESISTANCES AND CUTOFF VALUES ####
@@ -220,8 +222,6 @@ def omniscape(options):
             else:    
                 climateRaster = path.join(options['projectDir'],options['climateRasterBase'])
         
-        if options['useSourceRaster']:
-            sourceRaster = path.join(options['projectDir'],options['sourceRasterBase'])
         elif options['sourceInverseR']:
             sourceRaster = 1 / arcpy.Raster(resisRaster)
         else:
@@ -312,7 +312,6 @@ def omniscape(options):
             
             # Check for all nodata in center band of resistance raster
             if options['blockSize']>1:
-#fixme: should add 1 to the upper index in next line?
                 bandCenterArray = bandArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2),:]
             else:
                 bandCenterArray = bandArray[subsetCenterRow,:]
@@ -363,13 +362,10 @@ def omniscape(options):
 
                 # time consuming- add smart search. 
                 circleResisArray = circ(bandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius']) #fixme: move grid/rowarray calc into circ fn? 
-                print circleResisArray
                 if options['calcFA']:            
                     circleResisArrayFA = circ(bandArrayFA, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])
 
                 sourceArray = circ(sourceBandArray, rowArray, colArray, subsetCenterRow, centerCol, options['radius'])
-                print sourceArray
-                blarg
                 sourceArray = npy.where(sourceArray < 0, 0, sourceArray)    #fixme- just set nodata sources to zero earlier    
 
                 targetArray = center_block(sourceArray, options['blockSize'], subsetCenterRow, subsetCenterCol)                             
@@ -551,6 +547,8 @@ def omniscape(options):
                     voltMapPath = path.join(options['scratchDir'], 'target_r'+str(centerRow) + 'c' +str(centerCol) + '_voltmap.asc')
                     voltMap = (ascii_grid_reader(voltMapPath, header['nodata'], 'float64'))
                     voltMap = npy.where(circleResisArray<0,npy.nan,voltMap)
+                    #xprint 'voltmap'
+                    #xprint voltMap
                     
                     max_vdiff = get_max_vdiff(voltMap,circleResisArray,csOptions)
                     max_vdiff = npy.where(npy.isnan(max_vdiff),0,max_vdiff)
@@ -568,6 +566,9 @@ def omniscape(options):
                     elif options['removeArtifacts']:
                         correctionArray2 = trim(correctionArray, centerRow, centerCol, header['nrows'], header['ncols'], options)
                         max_vdiff = correctCurrents(max_vdiff, subsetCenterRow, subsetCenterCol, options, correctionArray2)
+
+                        # npy.where(max_vdiff>0,npy.multiply(max_vdiff,fadeArray),max_vdiff)
+                        # del fadeArray
 
                     max_vdiff = currentMultiplier * max_vdiff       
                     # if options['weightTargOnly']:
@@ -790,8 +791,7 @@ def get_null_result(artifactArray, artifactHeader, centerRow, centerCol, blockSi
         colArray = grid[1]
         del grid
         sourceArray = circ(artifactArray, rowArray, colArray, centerRow, centerRow, options['radius'])
-        print sourceArray.shape 
-        blarg        
+           
         resisArray = sourceArray.copy()
         sourceArray = npy.where(sourceArray < 0, 0, sourceArray) 
         targetArray = center_block(sourceArray, blockSize, centerRow, centerCol)                             
@@ -1108,27 +1108,10 @@ def match_climate_pcs(sourceArray, targetArray, t1PC1BandArray, t1PC2BandArray, 
             if len(sourceArray) < 10:
                 print 'PCDistArray '
                 print PCDistArray 
-
-            if options['usePCDistFn']:
-                # 0==>1
-                # cutoff==>0
-                # PCCutoffArray = where PCCutoffArray > 0,(cutoff - PCDistArray )/cutoff, 0
-                # fixme: use abs value of pcdistarray below to save computation?:
-                PCCutoffArray = npy.where((PCDistArray>= -options['PCWindow']) & (PCDistArray<= options['PCWindow']),(options['PCWindow'] - abs(PCDistArray) )/cutoff,0) 
-
-            else:
-                # fixme: use abs value of pcdistarray below to save computation?:
-                PCCutoffArray = npy.where((PCDistArray>= -options['PCWindow']) & (PCDistArray<= options['PCWindow']),1,0) 
+            PCCutoffArray = npy.where((PCDistArray>= -options['PCWindow']) & (PCDistArray<= options['PCWindow']),1,0) 
             if len(sourceArray) < 10:
                 print 'PCCutoffArray'
                 print PCCutoffArray
-            if options['usePCDistFn']:
-                0==>1
-                cutoff==>0
-                PCCutoffArray = where PCCutoffArray > 0,(cutoff - PCDistArray )/cutoff, 0
-            
-            
-            
             sourceArrayTarget_i = npy.multiply(sourceArray,PCCutoffArray)# sources for this target cell
             if npy.max(sourceArrayTarget_i)>0:
                 # targetTally+= 1 # There's a valid source for this target. Increment target count for scaling current in options['weightTargOnly'] setting
@@ -1793,11 +1776,7 @@ def set_options_and_dirs(options):
                 cutoffText = '_rc'+str(options['rCutoff'])
         else:
             cutoffText = ''
-        options['outputFileText'] = nullText + resisRasText + squareText + limText + '_' + srcText+climText+radiusText+'b'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+maxText+negTargText+fadeInText+artifactText+startBandText+endBandText+startStripeText+endStripeText            
-        if options['runTitle'] is not None and options['runTitle'] != '':
-            options['outputFileText'] = options['runTitle'] + '_' + options['outputFileText']
-        
-        options['runTitle'] + '_'
+        options['outputFileText'] = options['runTitle'] + '_' + nullText + resisRasText + squareText + limText + '_' + srcText+climText+radiusText+'b'+str(options['blockSize'])+cutoffText +distFunctionText+weightText+noWeightText+centerText+maxText+negTargText+fadeInText+artifactText+startBandText+endBandText+startStripeText+endStripeText
         options['prevFlowFile'] = None
         options['prevCumCurrentFile'] = None
         options['prevVdiffFile'] = None
@@ -1866,46 +1845,23 @@ def get_max_vdiff(voltMap,circleResisArray,csOptions):
         voltMap_u, voltMap_d = get_vert_neighbors(voltMap)
         # print 'voltMap_l'
         # print voltMap_l
-        
-        For each cell, want sum of voltages
-        sum of currents (got it)
-        sum of power
-        
-        partialVup = vup*r/(r+rup)
-        partialVul = vul*r/(r+rul)
-        powerUp = partialVup*r
-        powerUL = partialVul*4*sqrt2
-        
-        do cumulative vdiff?
-        do cumulative power?
-            couldn't we just get this knowing current through node (except for extra R on diags)?
-        TEST LANDSCAPE- create i, V, and P maps.
-        
         if options['adjustVoltages']: 
             # fixme: not completed. Aim is to 
             # see how much improvement is possible if r reduced to 1.
             # vdiff * (r-1)/r... if r = 1, no improvement possible. if r = 2, half of voltage could be reduced. etc.
             # need r's, will include r from 3 pixels. but try to calc how much v would drop if that one pixel were restored.
             # HOW MUCH WOULD V DROP ACROSS PIXEL IF R>1
-                #UNANSWERABLE since don't know how much total resistance on rest of pathway.
-                #BUT could assume that current change is negligible, and if current stays same, THEN we can calculate Vdiff and Pdiff
-
-                 
+            
             # But know current, so v = ir to get r?
             # 10 A going thru cell.
             # volt = 50
             # R = V/I
             # assumed R = 5
             
+            
+            
             # figure out where max vdiff is
             # figure out resistance across that
-            
-            #NEED TO SUM across different flow directions?
-            
-            #CUMULATIVE POWER?? READ HODGSON!
-            I2R in each direction
-            v2/r in each direction
-            
             
             resis_l, resis_r = get_horiz_neighbors(circleResisArray)
             resis_u, resis_d = get_vert_neighbors(circleResisArray)
@@ -2651,5 +2607,5 @@ if __name__ == '__main__':
     # Need this outside of main loop to avoid file lock problems:
     clean_up(options)
     if tileNum>0:
-        raw_input('Done with tile #' + str(tileNum) + '. Press Enter to continue.')
+        raw_input('Done. Press Enter to continue.')
     print 'Done'    

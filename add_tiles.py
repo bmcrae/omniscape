@@ -1,21 +1,9 @@
-Analysis:
-1.	Days per month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-2.	Deficit1 = 0
-3.	Capacity0 = jan_t2
-4.	Capacityt = Capacityt-1 + jan_t2
-a.	If <0, then Deficitt = Deficitt-1 + Capacityt
-b.	THEN set Capacityt = 0.
-c.	If >110, then 110.
+projectDir = r'D:\GIS_DATA\NACR\McRae\CA_Mockups\HM_2016_0811'# this is where all the input data are, and where out directory will be created.
 
-
-
-
-projectDir = r'D:\GIS_DATA\NACR\McRae\Duke_PNW_Omniscape\d8_omniscape'# this is where all the input data are, and where out directory will be created.
-
-inputDirBase = 'd8_50km_correct'#'d6_540m_100km_5Lim'
+inputDirBase = 'rHMp10_s1minusHM_90m'#'d6_540m_100km_5Lim'
 outputDirBase = inputDirBase + 'AddedRasters'
 numQuantiles=100
-extractMask =r'C:\DATADRIVE\DUKE_PNW_DATA\CIRCUITSCAPE_RESISTANCES_DUKE_PNW_CA\DUKE_FINAL_RESIS_RASTERS\PNW_study_area_poly_BHM.shp' #None to ignore, otherwise will cip to this
+extractMask = None #r'C:\DATADRIVE\DUKE_PNW_DATA\CIRCUITSCAPE_RESISTANCES_DUKE_PNW_CA\DUKE_FINAL_RESIS_RASTERS\PNW_study_area_poly_BHM.shp' #None to ignore, otherwise will cip to this
 tasks = ['cur']#['cur','volt']
     
 import os

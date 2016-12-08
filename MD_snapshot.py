@@ -1,5 +1,3 @@
-#fixme: in case where nodata is encountered and we continue, need to stop and save partialresults
-
 #fixme: need to create a mask raster (con(c1 not null, c2 not null etc) and then create temporary c1, c2 rasters that have been masked
 
 #fixme: add back in prev files
@@ -18,14 +16,14 @@ options['radius'] = 450/90# In PIXELS. Search radius, with sources activated wit
 options['blockSize'] = 1
 
 options['projectDir'] = r'C:\MD' #r'D:\GIS_Data\bmcrae\Duke_PNW_Omniscape\d8_omniscape'# this is where all the input data are, and where out directory will be created.
-options['c1RasterBase'] = 'CTI_MR_90mb.tif'#
-options['c2RasterBase'] = 'HLI_MR_90mb.tif'#'c2.asc'#NORM_6190_PC1_PNWmockup.tif'
+options['c1RasterBase'] = 'CTI_MR_90ma.tif'#
+options['c2RasterBase'] = 'HLI_MR_90ma1.tif'#'c2.asc'#NORM_6190_PC1_PNWmockup.tif'
 options['c3RasterBase'] = None#'c3.asc'#'NORM_6190_PC2_PNWmockup.tif'
 options['c4RasterBase'] = None#'c4.asc'#'MIROC5_2080s_RCP85_PC1_PNWmockup.tif'
 options['c5RasterBase'] = None#'resistances.asc'#'MIROC5_2080s_RCP85_PC2_PNWmockup.tif'
 
 
-options['outputDirBase'] = 'HLICTI_MR_clip90m'
+options['outputDirBase'] = 'HLICTI_MR90m'
 options['printTimings'] = True
 
 options['cleanUpBandFiles'] = True # set to false for debugging, will keep scratch files and individual band current maps
@@ -144,16 +142,15 @@ def topoclimate(options):
 #new
             count += 1
             bandNum += 1 
-            if options['startBand'] > 0 and bandNum < options['startBand']: blarg #not capable yet because of counting/partialresults continue
+            if options['startBand'] > 0 and bandNum < options['startBand']: continue
             if options['endBand'] > 0 and bandNum >= options['endBand']+1: 
-                blarg #not capable yet because of counting/partialresults
                 breakFlag = True
                 break
             print 'Starting band #',str(bandNum)+'/'+approxEndBand,' centered on row '+str(centerRow)
 
             c1BandArray, LLC = band(c1Raster,header,centerRow, options)
-#fixme: reinstate next line when figure out partialresults etc
-            # if npy.max(c1BandArray) == -9999: continue
+
+            if npy.max(c1BandArray) == -9999: continue
             c2BandArray, dummy  = band(c2Raster, header, centerRow, options)
             c3BandArray, dummy  = band(c3Raster, header, centerRow, options)
             c4BandArray, dummy  = band(c4Raster, header, centerRow, options)
@@ -179,22 +176,21 @@ def topoclimate(options):
             subsetCenterRow = min(centerRow,options['radius'])
             
             # Check for all nodata in center band of C1 raster
- #Fixme: reinstate bandcenterarray check. Had to remove because continue statement screwed up partialresults etc.
-            # if options['blockSize']>1:
-                # bandCenterArray = c1BandArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2),:]
-            # else:
-                # bandCenterArray = c1BandArray[subsetCenterRow,:]
+            if options['blockSize']>1:
+                bandCenterArray = c1BandArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2),:]
+            else:
+                bandCenterArray = c1BandArray[subsetCenterRow,:]
              
-            # if npy.max(bandCenterArray) == -9999:       
-                # del bandCenterArray
-                # continue
-            # del bandCenterArray
+            if npy.max(bandCenterArray) == -9999:       
+                del bandCenterArray
+                continue
+            del bandCenterArray
             
             
-            # grid = npy.indices((c1BandArray.shape))
-            # rowArray = grid[0]
-            # colArray = grid[1]
-            # del grid
+            grid = npy.indices((c1BandArray.shape))
+            rowArray = grid[0]
+            colArray = grid[1]
+            del grid
             stripeNum = 0
             for centerCol in range((options['blockSize']-1)/2, header['ncols'],options['blockSize']):
                 
@@ -204,7 +200,7 @@ def topoclimate(options):
                 if options['endStripe'] > 0 and stripeNum >= options['endStripe']+1: break
                 iter += 1
                 # print 'Band #',bandNum,'Stripe #',stripeNum
-    
+    #fixme- check this:
                 c2CircleVector = c3CircleVector = c4CircleVector = c5CircleVector = None
                 subsetCenterCol = min(centerCol,options['radius']) 
                 subsetCenterRow = min(centerRow,options['radius'])
@@ -219,18 +215,16 @@ def topoclimate(options):
                         # continue 
                 # print c1BandArray
                 # time consuming- add smart search. 
-                if c1BandArray[subsetCenterRow, centerCol]!=-9999:
-#FIXME! Passing teh band array here causes memory errors on this line. Should be able to accomplish what is needed without passing.
-                    c1CircleVector= circ(c1BandArray, subsetCenterRow, centerCol, options)
-                    if c2BandArray is not None:
-                        c2CircleVector = circ(c2BandArray, subsetCenterRow, centerCol, options)
-                    # Was getting memory error calling circ with None arrays, setting to None above instead                    
-                    if c3BandArray is not None:
-                        c3CircleVector = circ(c3BandArray, subsetCenterRow, centerCol, options)
-                    if c4BandArray is not None:
-                        c4CircleVector = circ(c4BandArray, subsetCenterRow, centerCol, options)
-                    if c5BandArray is not None:
-                        c5CircleVector = circ(c5BandArray, subsetCenterRow, centerCol, options)
+                c1CircleVector= circ(c1BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
+                if c2BandArray is not None:
+                    c2CircleVector = circ(c2BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
+                # Was getting memory error calling circ with None arrays, setting to None above instead                    
+                if c3BandArray is not None:
+                    c3CircleVector = circ(c3BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
+                if c4BandArray is not None:
+                    c4CircleVector = circ(c4BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
+                if c5BandArray is not None:
+                    c5CircleVector = circ(c5BandArray, rowArray, colArray, subsetCenterRow, centerCol, options)
                 # circleHeader = get_subset_header(c1CircleArray, header, options, centerRow, centerCol)
                 # yMin = circleHeader['yllcorner'] #fixme- check. coudl be something like: max(circleHeader['yllcorner'],circleHeader['yllcorner'] + ((circleHeader['nrows'] - centerRow - options['radius'] - 1) * circleHeader['cellsize']))
                 
@@ -244,6 +238,7 @@ def topoclimate(options):
 
                 
                 
+                if c1BandArray[subsetCenterRow, centerCol]!=-9999:
                     calcInBand = True                        
                     stdEucDist, options = std_euc(c1CircleVector, c2CircleVector, c3CircleVector, c4CircleVector, c5CircleVector, subsetCenterRow, subsetCenterCol, options)
 
@@ -253,8 +248,6 @@ def topoclimate(options):
                         partialResultsArray[(subsetCenterRow-(options['blockSize']-1)/2):(subsetCenterRow+(options['blockSize']-1)/2)+1,(centerCol-(options['blockSize']-1)/2):(centerCol+(options['blockSize']-1)/2)+1] = stdEucDist
                     else:
                         # partialResultsArray[subsetCenterRow,centerCol] = stdEucDist
-                        # print 'count,centercol'
-                        # print count, centerCol
                         partialResultsArray[count-1,centerCol] = stdEucDist
 
                         # print'subcr,cc,std'
@@ -264,7 +257,8 @@ def topoclimate(options):
                         # print 'donebda'
                         
                         
-                    del c1CircleVector, c2CircleVector, c3CircleVector, c4CircleVector, c5CircleVector                              
+                del c1CircleVector, c2CircleVector, c3CircleVector, c4CircleVector, c5CircleVector                              
+                start_time1 = time.clock()     
             # print 'Band Dist array:'
             # print partialResultsArray
             print 'Done with band#',str(bandNum)+'/'+approxEndBand
@@ -274,10 +268,7 @@ def topoclimate(options):
             # if calcInBand: #
                 # partialResultsArray = 
 #new
-            # print 'count, target'
-            # print count, partialResultsArray.shape[0]
             if count == partialResultsArray.shape[0]:
-                print 'reset'
 #new            
                 #if we've filled up partialResultsArray, add it to the cumulativeraster
                 # yMin = max(header['yllcorner'],header['yllcorner'] + ((header['nrows'] - partialResultsCenterRow - options['radius'] - 1) * header['cellsize']))
@@ -295,7 +286,6 @@ def topoclimate(options):
                 cumDistRaster = addData_arcpy(cumDistRaster, partialResultsRaster)
                 del partialResultsArray
                 partialResultsArray = None
-                gc.collect()
                 calcInBand=False
                 count = 0
                 del partialResultsRaster
@@ -318,7 +308,6 @@ def topoclimate(options):
             partialResultsRaster = arcpy.NumPyArrayToRaster(partialResultsArray[0:count,:], partialResultsLLC, header['cellsize'],header['cellsize'],-9999)                          
         # # SAVING BAND RASTER REMOVES OCCASIONAL HORIZONTAL STRIPING
         tempBandFile = os.path.join(options['scratchDir'], 'justBAND'+str(bandNum)+'cur_' + options['outputFileText']+'.tif')
-        
         partialResultsRaster.save(tempBandFile)
         delete_data(tempBandFile)
 
@@ -854,11 +843,11 @@ def addData_arcpy(cumCurrentRaster, currentRaster):
         print_python_error()
 
 @profile
-def circ(array, centerRow, centerCol, options):
+def circ(array, rowArray, colArray, centerRow, centerCol, options):
     try:
         if array is None: return None
 
-        colArraySmall, rowArraySmall, arraySmall = get_array_small(array, centerRow, centerCol, options)
+        colArraySmall, rowArraySmall, arraySmall = get_array_small(array, colArray, rowArray, centerRow, centerCol, options)
         
         distArray =  get_dist_array(rowArraySmall, centerRow, colArraySmall, centerCol)
 
@@ -947,32 +936,32 @@ def elapsed_time(start_time):
 
         
 # @profile
-def get_array_small(array, centerRow, centerCol, options):
+def get_array_small(array, colArray, rowArray, centerRow, centerCol, options):
     startRow = max(centerRow - options['radius'],0)
     endRow = min(centerRow + options['radius'],array.shape[0]-1)
     startCol = max(centerCol - options['radius'],0)
     endCol = min(centerCol + options['radius'],array.shape[1]-1)        
 #DITCH THESE
-    # colArraySmall = (colArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
-    # rowArraySmall = (rowArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
+    colArraySmall = (colArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
+    rowArraySmall = (rowArray[startRow:endRow+1,startCol:endCol+1]).astype('float64')
     arraySmall = array[startRow:endRow+1,startCol:endCol+1]
     smallGrid = npy.indices((arraySmall.shape))
     baseRow = max(centerRow - options['radius'], 0)
     baseCol = max(centerCol - options['radius'], 0)
     
-    rowArraySmall = smallGrid[0] + baseRow
-    colArraySmall = smallGrid[1] + baseCol
+    rowArraySmall2 = smallGrid[0] + baseRow
+    colArraySmall2 = smallGrid[1] + baseCol
 
     # print npy.sum(rowArraySmall2 - rowArraySmall)
-    # if npy.sum(rowArraySmall2 - rowArraySmall) != 0:
-        # blarg
-    # if npy.sum(colArraySmall2 - colArraySmall) !=0:
-        # print rowArraySmall
-        # print rowArraySmall2
-        # print colArraySmall
-        # print colArraySmall2
-        # print npy.sum(colArraySmall2 - colArraySmall)
-        # blarg2
+    if npy.sum(rowArraySmall2 - rowArraySmall) != 0:
+        blarg
+    if npy.sum(colArraySmall2 - colArraySmall) !=0:
+        print rowArraySmall
+        print rowArraySmall2
+        print colArraySmall
+        print colArraySmall2
+        print npy.sum(colArraySmall2 - colArraySmall)
+        blarg2
     
         
     del smallGrid
